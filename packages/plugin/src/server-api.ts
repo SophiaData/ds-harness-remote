@@ -481,7 +481,7 @@ export class HostServerApi {
       if (!response.ok) {
         const envelope = (body ?? {}) as ErrorEnvelope
         throw new ServerApiError(
-          typeof envelope.error?.code === 'string' ? envelope.error.code : mapStatus(response.status),
+          responseErrorCode(response.status, envelope.error?.code),
           typeof envelope.error?.message === 'string' ? envelope.error.message : 'The Server rejected the request.',
           envelope.error?.retryable === true || response.status >= 500,
           response.status,
@@ -574,13 +574,26 @@ async function parseBody(response: Response): Promise<unknown> {
   }
 }
 
-function mapStatus(status: number): string {
-  if (status === 401) return 'AUTH_INVALID'
-  if (status === 403) return 'AUTH_REQUIRED'
-  if (status === 404) return 'DEVICE_NOT_FOUND'
+function responseErrorCode(status: number, serverCode: unknown): string {
+  // Only a specific authorization response may change the local login state.
+  // A proxy error or an unclassified rejection must preserve stored credentials.
+  if (status >= 500) return 'CONNECTION_FAILED'
   if (status === 429) return 'RATE_LIMITED'
-  return status >= 500 ? 'CONNECTION_FAILED' : 'INVALID_MESSAGE'
+  if ((status === 401 || status === 403) && typeof serverCode === 'string') return serverCode
+  if (status === 401 || status === 403) return 'REQUEST_REJECTED'
+  if (typeof serverCode === 'string' && !AUTHORIZATION_ERROR_CODES.has(serverCode)) return serverCode
+  if (status === 404) return 'DEVICE_NOT_FOUND'
+  return 'INVALID_MESSAGE'
 }
+
+const AUTHORIZATION_ERROR_CODES = new Set([
+  'ACCOUNT_AUTH_REQUIRED',
+  'AUTH_INVALID',
+  'AUTH_REQUIRED',
+  'TOKEN_EXPIRED',
+  'DEVICE_REVOKED',
+  'DEVICE_OWNERSHIP_REQUIRED',
+])
 
 function parseHostDevice(value: unknown): ServerHostDevice {
   const item = requireRecord(value, 'host device')

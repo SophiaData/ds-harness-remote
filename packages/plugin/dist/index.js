@@ -75238,7 +75238,7 @@ var HostServerApi = class {
       if (!response.ok) {
         const envelope = body ?? {};
         throw new ServerApiError(
-          typeof envelope.error?.code === "string" ? envelope.error.code : mapStatus(response.status),
+          responseErrorCode(response.status, envelope.error?.code),
           typeof envelope.error?.message === "string" ? envelope.error.message : "The Server rejected the request.",
           envelope.error?.retryable === true || response.status >= 500,
           response.status
@@ -75316,13 +75316,23 @@ async function parseBody(response) {
     throw new ServerApiError("INVALID_MESSAGE", "The Server returned invalid JSON.", false, response.status);
   }
 }
-function mapStatus(status2) {
-  if (status2 === 401) return "AUTH_INVALID";
-  if (status2 === 403) return "AUTH_REQUIRED";
-  if (status2 === 404) return "DEVICE_NOT_FOUND";
+function responseErrorCode(status2, serverCode) {
+  if (status2 >= 500) return "CONNECTION_FAILED";
   if (status2 === 429) return "RATE_LIMITED";
-  return status2 >= 500 ? "CONNECTION_FAILED" : "INVALID_MESSAGE";
+  if ((status2 === 401 || status2 === 403) && typeof serverCode === "string") return serverCode;
+  if (status2 === 401 || status2 === 403) return "REQUEST_REJECTED";
+  if (typeof serverCode === "string" && !AUTHORIZATION_ERROR_CODES.has(serverCode)) return serverCode;
+  if (status2 === 404) return "DEVICE_NOT_FOUND";
+  return "INVALID_MESSAGE";
 }
+var AUTHORIZATION_ERROR_CODES = /* @__PURE__ */ new Set([
+  "ACCOUNT_AUTH_REQUIRED",
+  "AUTH_INVALID",
+  "AUTH_REQUIRED",
+  "TOKEN_EXPIRED",
+  "DEVICE_REVOKED",
+  "DEVICE_OWNERSHIP_REQUIRED"
+]);
 function parseHostDevice(value) {
   const item = requireRecord(value, "host device");
   if (item.role !== "host" || typeof item.deviceId !== "string" || typeof item.name !== "string" || typeof item.platform !== "string" || typeof item.membershipId !== "string" || item.membershipId.length === 0) {
