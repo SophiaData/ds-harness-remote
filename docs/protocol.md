@@ -1347,8 +1347,8 @@ Web / Desktop 可在 Client 内存中把 ACP Workspace / Session 投影到原生
 新工作区 ID 分别使用 `cursor:cwd:<encoded-path>` 和 `antigravity:cwd:<encoded-path>`；
 工作区只接受所属后端前缀，不兼容旧 AGY 的 `cursor:cwd:` ID，也不接受无前缀路径作为 ID。既有 Session ID（Cursor `cursor:`、AGY `acp:`）
 保持不变。`agent.acp.v1` 仅表示公共 ACP 数据面；Cursor 和 AGY 分别必须明确声明
-`agent.acp.cursor.v1` 和 `agent.acp.antigravity.v1`。ACP 尚未发布使用，不提供旧 ACP
-配置或工作区 ID 的迁移逻辑。
+`agent.acp.cursor.v1` 和 `agent.acp.antigravity.v1`。不提供早期 ACP
+配置或工作区 ID 的迁移逻辑；该限制不表示 ACP 尚未实现或发布。
 `dsh/sessionHistory` 使用有界 ACP transfer 读取含图片或大文本的响应；图片 Prompt 的
 transfer commit 使用与普通 Prompt 相同的长超时，chunk 顺序、大小与连接归属校验不变。
 History 显式后端及 Session 前缀必须与已绑定的后端一致；Cursor History 不读取 AGY transcript。

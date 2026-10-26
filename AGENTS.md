@@ -150,6 +150,8 @@ Desktop 默认保留的 `desktop` profile，只能由其官方 launcher 管理�
 
 ## Validation Baseline
 
+以下为历史验收快照，不代表当前源码基线。最近构建结果见文末 `Post-merge 0.5.20 rebuild (2026-10-27)`；当前兼容范围见 `docs/compatibility.zh.md`。
+
 截至 2026-09-16：
 
 - workspace check 与 DSH bundle 校验通过
@@ -650,7 +652,7 @@ Android production Hermes export 与 diff 检查通过；保留既有 Metro nobl
 内置自动化任务沿用官方 Typert carrier，固定放行 schedule/list、catalog、history、update、delete。
 更新保留官方 expected record 冲突校验与 session/task 绑定，Remote 不实现第二套调度器或持久化。
 schedule/changed 复用官方 $events；创建由会话中的 schedule_create 工具执行，不开放不存在的
-schedule/create Remote 端点。只覆盖原生 Desktop/浏览器界面，不新增 Android 管理页。
+schedule/create Remote 端点。该日期仅覆盖原生 Desktop/浏览器界面；2026-10-27 已合并 #176 的 Android 管理页，当前验收缺口见 docs/TODO.md。
 本次共享包/Plugin build、Plugin check、三个 carrier/bridge 测试文件 39 tests、DSH bundle
 校验和 git diff --check 通过；真实跨设备 UI 和多 Client 变更刷新验收仍待完成，未发布。
 

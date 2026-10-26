@@ -82,16 +82,21 @@ reads are cancelled, and their late results cannot replace the selected conversa
 Large Codex tool results load when expanded on supporting Hosts; older Hosts retain the
 existing bounded-transfer path.
 
-Text drafts, favorites and reading anchors are local to the server/account/Host identity.
-Text previews are encrypted with a device-local SecureStore key: the 12 most recently visited
-conversations retain up to 16 confirmed text messages and 128 KiB each. Image drafts last only
+Text drafts, favorites, reading anchors and recent visits are stored encrypted and isolated by
+server/account/Host identity. Conversation text previews are no longer persisted; hydration
+removes legacy previews while preserving drafts and preferences. Image drafts remain in memory
 for the current process. Approval handles, pending sends, permissions and tool output are not
-saved as previews. They are not an offline task queue or a copy of full Host history.
+persisted as conversation previews.
 
 Settings offers optional last-conversation restoration (off by default), completion/live-input
-notifications, system notification settings and preview cleanup. Notifications require a live
-connection and Android permission; the app does not add a push service. Sign-out and local
-reset clear this private browsing state. Clearing previews alone keeps drafts and favorites.
+notifications and system notification settings. Notifications require a live connection and
+Android permission; the app does not add a push service. Sign-out and local reset clear private
+browsing state. There is no separate conversation-preview cleanup control.
+
+The Host sidebar includes automation tasks: search and filter active/inactive tasks, inspect
+rules and records, delete a task, and open its session. New tasks are created through a
+conversation with the Host's native scheduling tool, not a separate mobile scheduler.
+Native-device and cross-device acceptance of this recently merged interface remains pending.
 
 ## Development
 

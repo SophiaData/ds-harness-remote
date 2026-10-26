@@ -1,31 +1,21 @@
 ## 中文
 
-**v0.5.19 · Android build 64**
+**v0.5.20 · Android build 65**
 
-- **兼容性变更：** Host 插件、随包客户端和 Android 不再支持旧版 ApiProxy，请升级到支持 Typert Remote 的 Host。
-- 修复 Android 会话图片预览，支持全屏查看和重试（#159）。
-- 优化 Android 流式回复自动滚动，新增阅读密度设置和离线 LaTeX 公式显示（#156、#157、#162、#164）。
-- 修复 Android 继续 CodeX 会话时覆盖远端权限的问题（#160）。
-- 适配 DS Bot 0.2.1，支持旁问 `/btw`、群聊继续、图表和计算卡片。
-- 修复超大会话历史加载，以及连接时误启动第二个 Desktop 的问题（#161）。
-- 临时断网时保留登录状态，修复关闭设备控制后的启动行为，优化侧栏布局。
-- 修复自部署 Server Docker 文件权限和浏览器扩展多语言资源打包（#146）。
-- 新增日文 README，更新安装说明。
-
-感谢 @dreamfarer-space、@xiongyuyang 和 @bluesmilery 的贡献。
+- 修复 Desktop 退出账号后 Remote 登录入口无法恢复的问题，并支持临时断线后自动重连 Harness 会话（#173），不重放操作；CodeX/ACP 虚拟工作区仍需手动重新打开。
+- 修复 Desktop 插件安装时 WebRTC 回退依赖加载失败的问题（#149）。
+- Android 新增自动化任务列表、筛选、详情与删除入口，并补齐主机侧栏多语言文案（#176）。
+- Android 支持从系统文件选择器添加附件（#174）。
+- 修复连续点击新会话按钮创建多余空会话的问题（#175）。
+- 改进 Android 息屏连接与唤醒恢复（#172）。
 
 ## English
 
-**v0.5.19 · Android build 64**
+**v0.5.20 · Android build 65**
 
-- **Compatibility:** the Host plugin, bundled client and Android no longer support legacy ApiProxy. Upgrade to a Host with Typert Remote support.
-- Fix Android conversation image previews, with full-screen viewing and retry (#159).
-- Improve Android auto-scrolling during replies; add reading-density settings and offline LaTeX formulas (#156, #157, #162, #164).
-- Fix Android overriding remote permissions when continuing CodeX conversations (#160).
-- Support DS Bot 0.2.1 side questions (`/btw`), group continuation, charts and calculator cards.
-- Fix oversized conversation history loading and connections launching a second Desktop (#161).
-- Keep users signed in during temporary outages, fix startup with device control disabled, and tidy the sidebar layout.
-- Fix self-hosted Server Docker file permissions and browser extension localization packaging (#146).
-- Add a Japanese README and update installation instructions.
-
-Thanks @dreamfarer-space, @xiongyuyang, and @bluesmilery for their contributions.
+- Restore Remote sign-in after Desktop sign-out and automatically reconnect Harness sessions after transient connection loss (#173), without replaying operations. CodeX/ACP virtual workspaces still require manual reopening.
+- Fix WebRTC fallback dependency loading in Desktop plugin installations (#149).
+- Add Android automation task lists, filters, details and deletion, with localized Host sidebar labels (#176).
+- Add attachments from Android's system file picker (#174).
+- Prevent repeated new-session taps from creating redundant empty conversations (#175).
+- Improve Android screen-off connections and recovery on resume (#172).

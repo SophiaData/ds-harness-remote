@@ -1,8 +1,8 @@
 # TODO
 
-更新日期：2026-10-24。当前内部待发布版本统一为 `0.5.19`，Android `versionCode 64`，Expo iOS `buildNumber 64`；尚未为此版本创建 Tag 或 Release。
+更新日期：2026-10-27。当前源码版本为 `0.5.20`，Android `versionCode 65`，Expo iOS `buildNumber 65`；Tag、npm 与 GitHub Release 状态以实际发布结果为准。
 
-本次全仓 check 与 794 tests 通过（Plugin 407、Android 195；7+78+1+12+44+43+7+407+195=794）。生产 build（含 Android Hermes export）与 DSH bundle 校验通过，未新增原生真机或跨设备验收；既有 Metro noble/hashes exports fallback 警告仍保留。
+最近一次构建验证见 [AGENTS.md 的 0.5.20 合并后重建记录](../AGENTS.md#post-merge-0520-rebuild-2026-10-27)：全仓 check、847 tests、串行生产 build（含 Android Hermes）、DSH bundle 与打包检查通过。这是既有验证记录，本轮文档清理未重新运行；未新增 APK、原生真机或跨设备验收。Metro noble/hashes exports fallback 警告仍保留。
 
 Harness `0.2.1-rc.1` 为开发基线。保留 `0.2.0-rc.2` / rc.1 的官方 Typert Session V3。
 peer range 接纳 `0.2.2` 预发布版。版本范围不代表 runtime 验收通过。
@@ -25,9 +25,11 @@ RC.1 的源码适配与本地自动化验证见兼容性说明；不能替代真
 - [ ] 真机/跨设备验收：ds-bot 0.2.0 创建/删除、群聊实时与历史、会话换段、卡片提交、断线恢复、主机切换、键盘和大屏布局。
 - [ ] Bot 专属文案补齐简中/英文之外的语言；当前其他语言回退英文。
 
-## 2026-10-22 原生自动化任务
+## 原生自动化任务（2026-10-27 更新）
 
 - [x] 放行官方 schedule/history、schedule/update、schedule/delete，复用既有列表和事件 carrier。
+- [x] Android 已合并自动化任务列表、搜索/状态筛选、规则/记录查看、删除及会话入口（#176）；不代表已完成真机验收。
+- [ ] Android 自动化任务、文件选择器（#174）、新会话防抖（#175）与息屏恢复改进（#172）的原生真机及跨设备回归。
 - [ ] 更新 Host 插件后，在真实 Desktop/浏览器远程连接中验收任务修改、删除、历史分页和跨 Client 变更刷新；本地契约验证不等于跨设备验收。
 
 ## 2026-10-21 移动端精简历史
@@ -144,7 +146,7 @@ transport 状态机；普通 UI、文案和辅助脚本不单独补测试。
 - [x] 用两台真实 Harness + 外部 Server 跑通同账号授权、选择 Remote、创建/继续会话
 - [x] 验证原生 mux/host stream、approval/question respond 与断线关闭行为
 - [x] 用手机 Web 与电脑 Web 同时连接一个真实 Host，验证并发操作、同设备重连和流隔离
-- [ ] 验证 allowlist 覆盖官方 UI 的必需方法；允许已认证 Remote peer 通过官方 seam 管理 Host 实时注册的 settings 命名空间与全局 credential 引用（credential 值只写），并保持 `settings.openDocument`、native path、目录写入、任意文件访问、attachment upload 和 download 禁止
+- [ ] 验证 allowlist 覆盖官方 UI 的必需方法；允许已认证 Remote peer 通过官方 seam 管理 Host 实时注册的 settings 命名空间与全局 credential 引用（credential 值只写），并保持 `settings.openDocument`、native path、任意文件访问及通用 attachment upload/download 禁止；官方 `workspace/create` 目录创建和独立 `workspace.upload.v1` 按协议限定范围
 - [x] 用两台真实 Harness 验证 dsh-file-viewer 文本、图片、PDF、大文件分块与断线回落
 - [ ] 在 macOS、Windows、Linux 验证 native picker 只读目录兜底、symlink、权限错误和大目录截断
 - [ ] 完善账号过期、`DEVICE_OWNERSHIP_REQUIRED` 和 legacy owner 的显式恢复体验
@@ -211,7 +213,6 @@ Codex 属于同一个 Remote Plugin，但在 Plugin 内保持独立业务领域�
 
 ## P0：协议与安全
 
-2026-10-16 WSL 核对结果见[协议与 Relay 验证报告](protocol-validation-2026-10-16.md)。
 本地集成验证不替代真实跨设备验收。
 
 - [ ] 将 `packages/protocol` 与 `docs/protocol.md` 的 Control、Account Authorization、Connect、Relay、ApiProxy tunnel、Error 和 Limits schema 逐项对齐
@@ -309,7 +310,7 @@ Typert Remote contract，不得在 Plugin Host 恢复 `sessions.*`、`session.se
 ## 不在本仓库实现
 
 - 完整多账号 Server、Remote Web、Admin runtime 及其数据库、队列和部署代码（`apps/server` 最小自部署版本除外）
-- 绕过官方 Session 文件系统或 dsh-file-viewer provider 的任意文件访问、独立文件写入 RPC、远程桌面或通用 Harness tool RPC；用户明确授权的原生 terminal 和受限 loopback 预览除外
+- 绕过官方 Session 文件系统或 dsh-file-viewer provider 的任意文件访问、独立文件写入 RPC、远程桌面或通用 Harness tool RPC；用户明确授权的原生 terminal、受限 loopback 预览、`workspace.upload.v1` 及官方 `workspace/create` 目录创建除外，边界以协议为准
 - 绕过 ApiProxy allowlist 的 Cordis service 反射
 
 ## 第一版完成标准
