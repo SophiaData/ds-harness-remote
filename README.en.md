@@ -27,11 +27,11 @@
   <a href="https://dshfind.com/zh/plugins/liguobao/ds-harness-remote?ref=badge"><img src="https://dshfind.com/api/badge/liguobao/ds-harness-remote?metric=downloads&amp;lang=zh" alt="dshfind downloads" width="137" height="20" align="absmiddle"></a>
 </p>
 
-Remote mode supports the official plugin page for listing, configuration, and enabling/disabling plugins (requires an updated Host Remote plugin). Remote itself remains locally managed on the Host; remote installation and removal are not exposed.
-
 ## Connect once. Ready whenever you are.
 
-Continue using your DeepSeek Harness instance from a phone, computer, or browser. Return to the same Harness session from whichever device is with you.
+Continue using your DeepSeek Harness instance from a phone, computer, or browser.
+
+Return to the same Harness session from whichever device is with you.
 
 Harness keeps running on your work computer, with the same workspaces, tools, and project setup.
 
@@ -40,6 +40,20 @@ DS Harness Remote is simply another window into that environment.
 The DeepSeek Harness desktop edition is supported. Install the latest release:
 
 `ds-harness-remote@0.5.19`
+
+## Features
+
+- Access your local Harness instance remotely from the web, a PC, or a mobile device: DSH first, with Codex, Cursor, and Antigravity support too.
+- Use the native DeepSeek Harness interface without a separate desktop conversation UI.
+- Create workspaces, configure models, and switch conversation models with the same smooth workflow as local use.
+- Support DeepSeek Harness Desktop, ready to use after installation.
+- Run a terminal-only [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) profile as a Host.
+- No public listening port or public IP is required on the Harness Host. Connect from anywhere with internet access over a bidirectional end-to-end encrypted channel.
+- Prefer P2P connections, use TURN relay nodes worldwide, and fall back to Server Relay when needed.
+- Access workspace files, read-only previews, remote terminals, and authorized local development-service previews through the native Harness sidebar.
+- CodeX and ACP terminals use the Host's default shell in the session directory and restore the terminal screen on reconnect.
+- Android keeps per-conversation drafts and reading positions, offers backend-separated search
+  and local favorites. Conversation text is loaded from the connected Host.
 
 ## Contents
 
@@ -61,33 +75,16 @@ The DeepSeek Harness desktop edition is supported. Install the latest release:
 - [Project status and trademarks](#project-status-and-trademarks)
 - [License](#license)
 
-## Features
-
-Harness automation tasks are available through the native Desktop/browser UI over Remote: view tasks and delivery history, edit timing/name/instructions, and delete tasks. Create tasks through the official `schedule_create` Agent tool. Tasks remain stored and executed on the Host; update the Host Remote plugin to enable management.
-
-- Access your local Harness instance remotely from the web, a PC, or a mobile device: DSH first, with Codex, Cursor, and Antigravity support too.
-- Use the native DeepSeek Harness interface without a separate desktop conversation UI.
-- Create workspaces, configure models, and switch conversation models with the same smooth workflow as local use.
-- Support DeepSeek Harness Desktop, ready to use after installation.
-- Run a terminal-only [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) profile as a Host.
-- No public listening port or public IP is required on the Harness Host. Connect from anywhere with internet access over a bidirectional end-to-end encrypted channel.
-- Prefer P2P connections, use TURN relay nodes worldwide, and fall back to Server Relay when needed.
-- Access workspace files, read-only previews, remote terminals, and authorized local development-service previews through the native Harness sidebar.
-- CodeX and ACP terminals use the Host's default shell in the session directory and restore the terminal screen on reconnect.
-- Android keeps per-conversation drafts and reading positions, offers backend-separated search
-  and local favorites. Conversation text is loaded from the connected Host.
-
 ## Supported clients
 
 | Client | Form | Status | Notes |
 | --- | --- | --- | --- |
-| DSH&nbsp;Desktop&nbsp;plugin | Remote sidebar inside DeepSeek Harness Desktop | Supported | Install `ds-harness-remote@0.5.19`; this computer can also be the Host |
-| Remote&nbsp;Web | Browser page | Supported | Open [dsh.r2049.cn/app](https://dsh.r2049.cn/app); reuses the native Harness interface |
+| DSH&nbsp;Desktop&nbsp;plugin | Remote sidebar | Supported | Install `ds-harness-remote@0.5.19`; this computer can also be the Host |
+| Web | Browser page | Supported | Open [https://dsh.r2049.cn](https://dsh.r2049.cn); reuses the native Harness interface |
 | Android | Native app | Supported | Download the APK from [Releases](https://github.com/liguobao/ds-harness-remote/releases/latest); see the [Android guide](apps/android/README.md) |
 | iOS | TestFlight beta | Beta | Not publicly released; see [issue #20](https://github.com/liguobao/ds-harness-remote/issues/20) |
-| VS&nbsp;Code | IDE extension | Experimental | Sign-in, Host fingerprint pinning, workspace-to-session navigation and prompts; streaming updates, automatic reconnect and the question UI are still in development, and cross-machine end-to-end validation is not finished |
-| Browser&nbsp;extension | Chrome / Edge MV3 extension | Entry point only | Exchanges an already signed-in Web authorization for a separate device credential, lists online Hosts and opens the same-origin Remote Web; it does not host a conversation UI |
-| dsh-TUI | Terminal-only CLI profile | Supported | Can act as a Host; see the [dsh-TUI Remote guide](docs/dsh-tui.md). The installer never creates a Web service for it automatically |
+| Browser&nbsp;extension | Chrome | Entry point only | Exchanges an already signed-in Web authorization for a separate device credential, lists online Hosts and opens the same-origin Remote Web; it does not host a conversation UI |
+| dsh-TUI | Terminal-only CLI | Supported | Can act as a Host; see the [dsh-TUI Remote guide](docs/dsh-tui.md). The installer never creates a Web service for it automatically |
 
 Several clients can connect to the same Host at once; RPC calls and streams are isolated per connection.
 
@@ -133,6 +130,8 @@ See the [installation guide](docs/installation.md) for private token input, upda
 
 ### Android client
 
+Keep conversations connected across multiple workspaces at once, and use **Bot mode**, powered by [Fei2411/DS-Bot](https://github.com/Fei2411/DS-Bot).
+
 Download the latest APK from [GitHub Releases](https://github.com/liguobao/ds-harness-remote/releases/latest), sign in to the same account, and select a Host and workspace to continue your conversation.
 
 ### iOS client
@@ -142,7 +141,7 @@ Download the latest APK from [GitHub Releases](https://github.com/liguobao/ds-ha
 ## Quick start
 
 1. Open **Remote** from the Harness sidebar.
-2. Sign in with a GitHub or Zhihu QR code, or use your account and password.
+2. Sign in using a Server-provided OAuth QR-code method, or use your account and password. The provider list is loaded dynamically; new Server integrations need no further plugin release.
 3. The Host starts with control of the current computer enabled. Remote terminal access is also enabled by default; you can turn it off in the detailed Remote settings.
 4. On another device, open the DeepSeek Harness desktop edition, Remote Web, or the Android client and sign in to the same account.
 5. Select the online Host, then choose an existing workspace or browse remote directories to open one.
@@ -174,15 +173,15 @@ connection status shown in the header.
 
 Use text or image prompts, switch models, and access supported workspace files and terminals. The interface follows the system language and supports English, Simplified and Traditional Chinese, Japanese, Spanish, German, and French. In language settings, tap “More ...” to show all languages. See the [Android guide](apps/android/README.md) for details.
 
-The Bot button to the left of **+** on the Host workspace header opens the native DS Bot team mode: Bots, group chats, management, questions and interactive cards. DS Bot 0.2.1 adds side questions (`/btw`), group continuation and native chart/formula cards; HTML cards show a Host-only summary. In Bot mode, the header shows a Workspace switch immediately left of the three-dot menu. DS Bot must be enabled on the connected Host; see the [Bot mode guide](apps/android/README.md#bot-mode) for availability and validation limits.
-
 <p align="center">
   <img src="docs/images/mobile-list.jpg" alt="Android client listing online and offline computers" width="30%">
   <img src="docs/images/image-msg.jpg" alt="Sending an image prompt from the Android client" width="30%">
   <img src="docs/images/image-result.jpg" alt="Viewing the image response in the Android client" width="30%">
 </p>
 
-Mobile Settings includes an opt-in **Compact conversations** switch, applied globally when a conversation is next opened. Supporting Hosts send shorter historical tool details while preserving messages and tool status. Older Hosts keep the existing behavior. Turn it off and reopen the conversation to load full history.
+Mobile Settings includes a global **Compact conversations** switch, off by default and applied when a conversation is next opened.
+
+Supporting Hosts reduce historical tool details while preserving messages and tool status. Turn the setting off and reopen the conversation to load full history.
 
 ## How it works
 
@@ -212,6 +211,7 @@ Desktop and Android project their workspaces and sessions into the existing inte
 
 Supported backends:
 
+- **Codex** — connected through its independent App Server interface, with the same workspace entry.
 - **Cursor** — connected through the CLI's ACP interface.
 - **Antigravity (AGY)** — its stream-json CLI is adapted to the ACP gateway.
 - **Pi Agent (experimental)** — install `@earendil-works/pi-coding-agent` and `pi-acp` on the Host, configure Pi's provider locally; Remote automatically detects and initializes Pi unless explicitly disabled in Remote settings. The workspace is available only after ACP initialization succeeds. Uses the separate ACP data plane. Tools run with Host-user permissions; per-tool confirmation requires a Pi extension and is not enabled by default.
@@ -219,42 +219,40 @@ Supported backends:
 - **OpenCode** — connected through `opencode acp`, with workspace discovery and history recovery. Host startup checks the CLI's supported options, accepting both native-listener and stdio-only ACP builds. Native session archiving on Desktop/Android requires the authenticated loopback API; builds without it report archiving unavailable. Archive state is saved by OpenCode; history is retained. Unarchive is not yet exposed.
 - **Claude** — uses a locally authorized `claude-agent-acp` on the Host; enable it in Remote settings. Desktop/Android support workspaces, history, text prompts and approvals. Image input and direct Files/Terminal access are not available.
 
-Model selection is available for Cursor, Claude, Pi, OpenCode, and AGY on Desktop/Android using the Host's actual model catalog and confirmed changes. Effort choices appear when advertised by the backend. Cursor uses a separate process per session so model changes cannot affect other conversations.
-
-- **Codex** — connected through its independent App Server interface, with the same workspace entry.
-
 Setup and adapter development: [Agent workspace integration guide](docs/acp-integration.md).
+
+Model selection for Cursor, Claude, Pi, OpenCode, and AGY on Desktop/Android uses the Host's actual model catalog and waits for backend confirmation.
+
+Reasoning effort options depend on what the backend provides. Cursor uses a separate process per session, so model changes do not affect other conversations.
 
 ## End-to-end encryption
 
-Harness business traffic is encrypted on the Client and decrypted only by the selected Host using
-the fixed `Noise_IK_25519_ChaChaPoly_SHA256` suite. Account membership and locally pinned device
-identity keys must both authorize a connection. The service can route connections and observe
-network metadata, but it cannot read session messages, prompts, tool output, workspace paths, or
-remote file contents. See [End-to-end encryption](docs/end-to-end-encryption.md) for the handshake,
-key lifecycle, visible metadata, replay protection, and security limits.
+Harness business traffic is encrypted on the Client and decrypted only by the selected Host using the fixed `Noise_IK_25519_ChaChaPoly_SHA256` suite.
+
+Connections must pass both same-account membership and locally pinned device identity key checks.
+
+The service can coordinate connections and observe necessary network metadata, but it cannot read session messages, prompts, tool output, workspace paths, or remote file contents.
+
+See [End-to-end encryption](docs/end-to-end-encryption.md) for the handshake, key lifecycle, visible metadata, replay protection, and security limits.
 
 ## Network and transport
 
-The Host opens outbound connections only; it does not listen on a public port or require router
-port forwarding. Remote negotiates `LAN -> P2P -> TURN -> Relay`, falling back to the encrypted
-WebSocket Relay when WebRTC is unavailable or cannot connect. Every path carries the same Noise
-ciphertext and keeps the same Host/Client identity boundary. An established path that fails is
-closed and re-established on a new transport and Noise channel. A `CONNECTION_FAILED` error can
-come from the Server or from the Host's local fallback, so check the `closedBy` and `retryable`
-log fields before blaming WebRTC. See [Network and transport](docs/network.md)
-for the topology, control and data planes, NAT behavior, fallback, reconnect semantics, and current
-validation status.
+The Host opens outbound connections only; it does not listen on a public port or require router port forwarding.
 
-Creating a Harness workspace can create missing directories as the Host user, independently of the terminal switch. Paths must be absolute and non-root; created directories remain if registration fails.
+Remote negotiates paths in the order `LAN -> P2P -> TURN -> Relay`.
 
-OAuth sign-in methods are loaded from the Server. Use `ds-harness-remote login list` or `/remote login list` to see available QR providers; new server integrations need no further plugin release.
+When WebRTC is unavailable or cannot connect, it falls back to the encrypted WebSocket Relay.
+
+Every path carries the same Noise ciphertext and keeps the same Host/Client identity boundary.
+
+See [Network and transport](docs/network.md) for the topology, control and data planes, NAT behavior, fallback, reconnect semantics, and current validation status.
 
 ## Security
 
 - Session traffic is end-to-end encrypted. The service relays ciphertext without storing session plaintext or device private keys.
 - Server membership and the Host's locally pinned peer identity must both authorize a connection.
-- Interactive terminals use the Host-local `terminal.enabled` switch (on by default). They run as the Host user, independently of Agent approvals. General tool RPC and remote desktop remain unavailable.
+- Interactive terminals use the Host-local `terminal.enabled` switch (on by default). They run as the Host user, independently of Agent approvals.
+- General tool RPC and remote desktop are not exposed.
 - The workspace picker lists folders only and returns bounded, read-only directory metadata.
 - Remote file preview cannot write, delete, upload, execute, or open a path in an external application.
 - Codex Remote / Agent ACP is optional, can be disabled, and follows the same encrypted Host permission boundary as the rest of Remote.
@@ -282,7 +280,9 @@ Yes. Multiple clients can connect concurrently, with RPC calls and streams isola
 
 The current baseline is `dsh-v0.2.1-rc.1`, compatible with `0.2.0` rc.2 / rc.1. See the [compatibility guide](docs/compatibility.md).
 
-Harness `0.1.1-rc.2` ApiProxy support has been removed from the Host plugin, its bundled Remote client, and Android. Use a Host with the official Typert Remote carrier; ApiProxy-only Hosts and missing capability discovery are rejected. CodeX/ACP keep their independent data planes and use Typert for Desktop projection. This change does not update the standalone VS Code client or the independent Remote Web repository.
+Harness `0.1.1-rc.2` ApiProxy support has been removed from the Host plugin, its bundled Remote client, and Android. Use a Host with the official Typert Remote carrier; Hosts that only provide ApiProxy or lack capability discovery are rejected, with no fallback.
+
+CodeX/ACP keep their independent data planes, and Desktop projections use Typert in memory.
 
 **Why does the Linux installer require root?**
 
@@ -294,7 +294,13 @@ It is in TestFlight beta today and not publicly released; see [issue #20](https:
 
 **How is this different from frp, a tunnel, or remote desktop?**
 
-This is neither port forwarding nor remote desktop. Only the native Harness conversation interface is mapped to the remote client; general tool RPC and desktop control stay closed, and permissions and approvals remain on the Host.
+Conventional server-based TCP port forwarding routes traffic through a Server, making its bandwidth a potential bottleneck.
+
+This project probes four connection modes in sequence to establish P2P connections even in complex network environments.
+
+Remote desktop captures the entire computer screen and reproduces it on the client, placing demands on upload and download bandwidth as well as computer performance.
+
+This project encrypts and transmits only the messages needed by the native Harness conversation interface. General tool RPC and desktop control are not exposed, and permissions and approvals remain on the Host.
 
 ## Documentation
 
