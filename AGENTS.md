@@ -748,3 +748,18 @@ Client 的 loopback control 错误必须保留 `details.remoteCode`（优先）�
 Server 地址未保存时提示先保存并禁用入口。0.5.20 Plugin check/build、DSH bundle 与 diff
 check 通过；隔离浏览器加载真实 client bundle 验证入口打开登录页及地址草稿的禁用/恢复。
 纯 UI 不新增自动化测试，未完成真实账号重新登录或 Desktop 重启验收。
+
+## Post-merge 0.5.20 rebuild (2026-10-27)
+
+合并 #172、#174、#175、#176，并保留本地 Desktop 登录修复后重新构建；版本维持
+`0.5.20`，Android `versionCode` / Expo iOS `buildNumber` 为 `65`。共享包和 Plugin
+build、全仓 check、847 tests（Plugin 404、Android 250）、串行生产 build（包含
+Android Hermes）通过。Android 使用 CI 固定提交及文件哈希的 Intelligent UI renderer。
+两份已提交 Plugin bundle 重建无差异，普通与生产构建 SHA256 一致；DSH bundle、
+根 GitHub 入口加载、npm 实际打包、浏览器扩展 ZIP 与 diff check 通过。
+
+GitHub/npm packed WebRTC 的生产依赖闭包、原生不可用时的回退及双向 DataChannel
+校验通过。macOS 默认临时目录 `/var` 与 realpath `/private/var` 的差异会触发既有
+校验脚本的路径边界误判，本轮使用规范化的 `TMPDIR=/private/tmp` 运行原脚本通过。
+产物与日志保留在忽略的 `artifacts/rebuild-0.5.20/`；未新增 APK、原生真机或跨设备
+验收，未发布 npm/Tag/Release。Metro noble/hashes exports fallback 警告仍存在。
