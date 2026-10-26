@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ControlResult } from '../src/control-result.js'
+import { unwrapControlResult } from '../src/client/control-result.js'
 import { generateKeyPair, NoiseIkSession, createNoisePrologue, fromBase64Url, toBase64Url } from '@dsh-remote/crypto'
 import { createControlFrame } from '@dsh-remote/protocol'
 import { RemoteClientCore } from '@dsh-remote/client-core'
@@ -1212,7 +1213,7 @@ describe('ClientModeRuntime Host account control', () => {
   })
 
   it('requires local Host authorization before listing devices', async () => {
-    const rows = ['DEVICE_REVOKED', 'AUTH_INVALID', 'TOKEN_EXPIRED'] as const
+    const rows = ['ACCOUNT_AUTH_REQUIRED', 'DEVICE_OWNERSHIP_REQUIRED', 'DEVICE_REVOKED', 'AUTH_INVALID', 'TOKEN_EXPIRED'] as const
     await runScenarios(
       rows.map((row, index) => {
         const error = row
@@ -1243,6 +1244,10 @@ describe('ClientModeRuntime Host account control', () => {
             await runtime.start()
 
             await expect(runtime.devices()).rejects.toMatchObject({ code: error })
+            // The browser must receive the domain code, not the envelope's
+            // generic "internal" code, to return to account authorization.
+            const result = await runtime.handleControl('devices', {}, new AbortController().signal)
+            expect(() => unwrapControlResult(result, 'Request failed')).toThrow(expect.objectContaining({ code: error }))
             expect(listDevices).not.toHaveBeenCalled()
             await runtime.close()
           },

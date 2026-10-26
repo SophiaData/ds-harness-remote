@@ -146,7 +146,7 @@ macOS 仍使用普通用户，优先复用 Desktop 官方 launcher，否则已�
 Desktop 默认保留的 `desktop` profile，只能由其官方 launcher 管理。一次性 Token 复用官方身份/凭据与既有注册码接口，
 不得记录或作为持久设备凭据使用。Windows 用户使用官方插件管理或已有 Harness 的官方命令。
 卸载先按安装指南停用 Linux 系统服务，再通过官方插件管理或 `dsh plugin remove` 移除 Remote；不自动删除 runtime、
-凭据或迁移旧 service。当前待发布版本为 `0.5.19`，Android `versionCode` / Expo iOS `buildNumber` 为 `64`；发版准备已将安装说明同步到 `ds-harness-remote@0.5.19`，Tag、npm 与 GitHub Release 的发布状态以实际发布结果为准。
+凭据或迁移旧 service。当前待发布版本为 `0.5.20`，Android `versionCode` / Expo iOS `buildNumber` 为 `65`；发版准备已将安装说明同步到 `ds-harness-remote@0.5.20`，Tag、npm 与 GitHub Release 的发布状态以实际发布结果为准。
 
 ## Validation Baseline
 
@@ -734,3 +734,17 @@ Plugin check、共享包/Plugin build、DSH bundle 校验、生产重建哈希�
 通过。真实 Desktop 更新/回滚、Windows/Electron 与跨设备 E2E 未新增验收。
 旧 generation 的依赖树不会被新插件重写；恢复旧包仍需要宿主正确识别 builtin 或使用
 官方插件管理恢复路径，不能宣称本修复覆盖所有历史回滚。
+
+## Desktop signed-out account recovery (2026-10-26)
+
+Client 的 loopback control 错误必须保留 `details.remoteCode`（优先）及外层 `code`，
+不能仅转成普通 Error 文案，否则未登录/授权失效会被当作临时网络失败，重新打开 Remote
+仍展示空主机列表与退出账号，而不显示登录入口。保持 Host 设备发现的授权拦截。
+既有核心授权矩阵补齐未登录/无归属，并贯通真实 control envelope 到 Client 解码。
+共享包及 Plugin build、Plugin check、相关 26 tests、DSH bundle 与 diff check 通过。
+本机当前窗口可显示登录页；未执行完整 Desktop 退出重启或重新登录的跨设备验收。
+
+未登录的插件设置页提供「登录账号」，通过同一插件实例的回调打开已有 Remote 登录窗口；
+Server 地址未保存时提示先保存并禁用入口。0.5.20 Plugin check/build、DSH bundle 与 diff
+check 通过；隔离浏览器加载真实 client bundle 验证入口打开登录页及地址草稿的禁用/恢复。
+纯 UI 不新增自动化测试，未完成真实账号重新登录或 Desktop 重启验收。

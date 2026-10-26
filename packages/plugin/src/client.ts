@@ -1,6 +1,7 @@
 import type { Translate } from './client-locale.js'
 import { en, localeNamespace, zh } from './client-locale.js'
 import { createRemoteSessionHeaderAction } from './client/header.js'
+import { unwrapControlResult } from './client/control-result.js'
 import { pendingWorkspaceSelectionKey, storedWorkspaceSelection, workspacesReady } from './client/navigation.js'
 import { connectedProgress, connectionErrorMessage, messageOf } from './client/presentation.js'
 import { createRemoteProgressView, runConnectHostProgress } from './client/progress.js'
@@ -314,6 +315,12 @@ window.__ModuleLoader__.load({
       }, 'ds-harness-remote: plugin route fetch')
 
       const t = ctx.locale.bind(localeNamespace)
+      const remoteOpenListeners = new Set<() => void>()
+      const openRemote = (): void => { for (const listener of remoteOpenListeners) listener() }
+      const subscribeOpen = (listener: () => void): (() => void) => {
+        remoteOpenListeners.add(listener)
+        return () => { remoteOpenListeners.delete(listener) }
+      }
       let controlRouteRetryAfter = 0
       let controlRouteBackoffIndex = 0
       const control = async <T,>(endpoint: string, payload: unknown = {}): Promise<T> => {
@@ -333,8 +340,7 @@ window.__ModuleLoader__.load({
           if (endpoint === 'status') return controlRouteUnavailableStatus() as T
           throw new ControlRouteUnavailableError(t('remoteControlUnavailable'))
         }
-        if (!result.ok) throw new Error(result.error?.message ?? t('remoteRequestFailed'))
-        return result.value as T
+        return unwrapControlResult(result, t('remoteRequestFailed')) as T
       }
       // One pushed status stream feeds every Host-status render in this page.
       // Hosts without the event stream keep answering the unary status control
@@ -469,6 +475,7 @@ window.__ModuleLoader__.load({
         inject: () => ({
           control,
           statusFeed,
+          subscribeOpen,
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))
@@ -483,7 +490,7 @@ window.__ModuleLoader__.load({
         name: 'plugins.row.config',
         key: 'ds-harness-remote#ds-harness-remote',
         locale: localeNamespace,
-        inject: () => ({ control, statusFeed }),
+        inject: () => ({ control, statusFeed, onSignIn: openRemote }),
       }, RemotePluginOptions))
       // Bundle-scoped: installed-bundle details resolve configuration by
       // package name.
@@ -491,7 +498,7 @@ window.__ModuleLoader__.load({
         name: 'plugins.bundle.config',
         key: 'ds-harness-remote',
         locale: localeNamespace,
-        inject: () => ({ control, statusFeed }),
+        inject: () => ({ control, statusFeed, onSignIn: openRemote }),
       }, RemotePluginOptions))
     }
 
