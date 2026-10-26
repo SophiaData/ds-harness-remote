@@ -139,6 +139,7 @@ import { useLiveSessionStatus } from './device-screens'
 import { SessionInfo } from './chat/session-info'
 import { workspaceStableKey } from '../lib/workspace-key'
 import { HostSessionsDrawer } from './host-sessions-drawer'
+import { AutomationTasksModal } from './automation-tasks-modal'
 import { resolveSessionDisplayTitle } from './session-title'
 import { SessionToolsPanel } from './session-tools-panel'
 
@@ -225,6 +226,7 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
   const [teamOpen, setTeamOpen] = useState(false)
 
   const [sessionsOpen, setSessionsOpen] = useState(false)
+  const [automationTasksOpen, setAutomationTasksOpen] = useState(false)
   const [sessionInfoOpen, setSessionInfoOpen] = useState(false)
 
   // Web-style blue marks: `/` commands and `@` references render in accent blue.
@@ -1621,6 +1623,7 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
               backLabel={zhCN.chat.backToWorkspaces}
               onClose={() => Keyboard.dismiss()}
               onSelect={async next => { await openSession(next) }}
+              onOpenAutomationTasks={() => setAutomationTasksOpen(true)}
             />
           </View>
         )}
@@ -2051,6 +2054,10 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
           onOpenDevices()
         }}
         onClose={() => setSessionsOpen(false)}
+        onOpenAutomationTasks={() => {
+          setSessionsOpen(false)
+          setAutomationTasksOpen(true)
+        }}
         onSelect={async next => {
           const pending = openSession(next)
           const visible = useAppStore.getState().selectedSession?.sessionId === next.sessionId
@@ -2121,6 +2128,18 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
           </Pressable>
         </View>
       </Modal>
+      <AutomationTasksModal
+        visible={automationTasksOpen}
+        onClose={() => setAutomationTasksOpen(false)}
+        onOpenSession={async targetSession => {
+          setAutomationTasksOpen(false)
+          await openSession(targetSession)
+        }}
+        onNewTask={async () => {
+          setAutomationTasksOpen(false)
+          await createSession(currentWorkspace?.workspaceId)
+        }}
+      />
     </KeyboardInset></MarkdownLinkProvider></ChatImageProvider>
   )
 }
