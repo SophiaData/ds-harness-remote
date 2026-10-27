@@ -89,6 +89,11 @@ window.__ModuleLoader__.load({
     const RemoteWorkspaceAction = createRemoteWorkspaceAction(React)
     const RemoteProgressView = createRemoteProgressView(React)
     const RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React)
+    let openHarnessSettings: ((page?: string) => void) | undefined
+    function RemoteSettingsLauncher(props: { openSettings?: (page?: string) => void }): unknown {
+      openHarnessSettings = props.openSettings
+      return null
+    }
     const inject = [
       'connection', 'slots', 'locale', 'workspaces', 'sessions',
     ]
@@ -466,6 +471,81 @@ window.__ModuleLoader__.load({
           }
         }, 'ds-harness-remote: remote file viewer provider')
       })
+      // Add Remote Hosts as an @ mention source through Harness' input-trigger
+      // service. The source owns only discovery and target switching; it never
+      // serializes a host into the prompt or writes session state.
+      const RemoteMentionIcon = (props: { size?: number; color?: string }): unknown => React.createElement('svg', {
+        width: props.size ?? 18,
+        height: props.size ?? 18,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        stroke: props.color ?? 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        className: 'dshRemoteComputerIcon',
+      }, React.createElement('rect', { x: 3, y: 4, width: 18, height: 13, rx: 2 }),
+        React.createElement('path', { d: 'M8 21h8M12 17v4' }))
+      ctx.inject(['inputTriggers'], inputContext => {
+        const hostCache = new Map<string, RemoteDevice>()
+        inputContext.effect(() => {
+          const inputTriggers = (inputContext as unknown as { inputTriggers: { registerSource(source: unknown): () => void } }).inputTriggers
+          const source = {
+            trigger: '@',
+            name: '主机',
+            order: -20,
+            showGroupTitle: true,
+            candidates: async (_session: unknown, request: { query: string; signal: AbortSignal }) => {
+              const devices = await control<RemoteDevice[]>('devices').catch(() => [])
+              const query = request.query.trim().toLocaleLowerCase()
+              return devices
+                .filter(device => device.online && (query === '' || `${device.name} ${device.deviceId}`.toLocaleLowerCase().includes(query)))
+                .map(device => {
+                  hostCache.set(device.name, device)
+                  return {
+                  name: device.name,
+                  label: device.name,
+                  description: t('remoteHostMention', { platform: device.platform }),
+                  icon: RemoteMentionIcon,
+                  value: JSON.stringify({ deviceId: device.deviceId, label: device.name, platform: device.platform }),
+                  }
+                })
+            },
+            onPick: (pick: { candidate: { label?: string; name: string } }) => {
+              const label = pick.candidate.label ?? pick.candidate.name
+              return { text: `@${label} ` }
+            },
+          }
+          const stopHostFileOpen = (event: Event): void => {
+            const target = event.target instanceof Element
+              ? event.target.closest('button,[role=\"button\"],a') ?? event.target
+              : undefined
+            if (!(target instanceof Element)) return
+            const text = target.textContent?.trim().replace(/^@/, '') ?? ''
+            const device = hostCache.get(text)
+            if (!device) return
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            let invocation = `@${device.name}`
+            let container: Element | null = target
+            for (let depth = 0; depth < 20 && container !== null; depth += 1) {
+              const candidate = container.textContent?.trim() ?? ''
+              if (candidate.includes(device.name) && candidate.length > invocation.length && candidate.length < 4000) invocation = candidate
+              container = container.parentElement
+            }
+            window.dispatchEvent(new CustomEvent('dsh-remote-host-reference', {
+              detail: { label: device.name, platform: device.platform, deviceId: device.deviceId, invocation },
+            }))
+          }
+          document.addEventListener('click', stopHostFileOpen, true)
+          const unregister = inputTriggers.registerSource(source)
+          return () => {
+            document.removeEventListener('click', stopHostFileOpen, true)
+            unregister()
+          }
+        }, 'ds-harness-remote: host mention source')
+      })
       ctx.effect(() => ctx.locale.register(localeNamespace, { zh, en }), 'ds-harness-remote: dictionaries')
       ctx.effect(() => installStyle(clientModuleId), 'ds-harness-remote: client styles')
       ctx.effect(() => installTerminalAvailabilityNotice(statusFeed, t), 'ds-harness-remote: terminal availability notice')
@@ -485,9 +565,16 @@ window.__ModuleLoader__.load({
           control,
           statusFeed,
           subscribeOpen,
+          openSettings: () => openHarnessSettings?.('plugins'),
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))
+      ctx.slots.inject('settings.launcher', () => ctx.slots.register({
+        name: 'settings.launcher',
+        id: 'ds-harness-remote-settings-launcher',
+        order: 100,
+        locale: localeNamespace,
+      }, RemoteSettingsLauncher))
       // rc.1 Plugins-page configuration surfaces. `plugins.item` is reserved
       // for the official settings companion packages (the Plugins page renders
       // its registrants inside the Official group, so a third-party card there
