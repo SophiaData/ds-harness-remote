@@ -53,6 +53,7 @@ function loginMethodLabel(method?: LoginMethod): string {
 export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, setServerExpanded }: { onComplete: () => void; onBack?: () => void; onMore: () => void; serverExpanded: boolean; setServerExpanded: (expanded: boolean) => void }) {
   const config = useAppStore(state => state.config)
   const busy = useAppStore(state => state.busyAction === 'server')
+  const language = useAppStore(state => state.language)
   const oauthBusy = useAppStore(state => state.busyAction === 'oauth')
   const selectServer = useAppStore(state => state.selectServer)
   const configure = useAppStore(state => state.configureServer)
@@ -70,12 +71,14 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
   const serverDirty = serverDraft.trim() !== serverUrl
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loginMethod, setLoginMethod] = useState<SetupLoginMethod>('oauth')
+  const preferredLoginMethod: SetupLoginMethod = language.startsWith('zh-') ? 'oauth' : 'google-oauth'
+  const [loginMethod, setLoginMethod] = useState<SetupLoginMethod>(preferredLoginMethod)
   const [showQr, setShowQr] = useState(false)
   const [loginProviders, setLoginProviders] = useState<OAuthProviderInfo[]>([])
   const [providersPhase, setProvidersPhase] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [providerReload, setProviderReload] = useState(0)
-  const availableMethods: SetupLoginMethod[] = (['oauth', 'github-oauth', 'google-oauth'] as const)
+  const availableMethods: SetupLoginMethod[] = ([preferredLoginMethod, 'oauth', 'github-oauth', 'google-oauth'] as const)
+    .filter((method, index, methods) => methods.indexOf(method) === index)
     .filter(method => loginProviders.some(provider => provider.id === qrProviderFor(method)))
   availableMethods.push('password')
   const supportsQrAny = loginProviders.some(provider => provider.qrStartUrl !== undefined && availableMethods.some(method => qrProviderFor(method) === provider.id))
@@ -119,10 +122,10 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
       setProvidersPhase('ready')
       setLoginMethod(current => current === 'password' || result.providers.some(provider => provider.id === qrProviderFor(current))
         ? current
-        : (['oauth', 'github-oauth', 'google-oauth'] as const).find(method => result.providers.some(provider => provider.id === qrProviderFor(method))) ?? 'password')
+        : ([preferredLoginMethod, 'oauth', 'github-oauth', 'google-oauth'] as const).find(method => result.providers.some(provider => provider.id === qrProviderFor(method))) ?? 'password')
     })
     return () => { cancelled = true }
-  }, [serverUrl, providerReload, listLoginProviders])
+  }, [serverUrl, providerReload, listLoginProviders, preferredLoginMethod])
 
   const closeServerEditor = () => {
     if (busy) return
