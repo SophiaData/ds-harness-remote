@@ -399,14 +399,27 @@ export class HostServerConnection {
       return
     }
     const existing = this.identities.trustedPeer(descriptor.deviceId)
-    if (existing !== undefined && existing.publicKey !== descriptor.identityKey) {
+    const stalePin = existing !== undefined && existing.publicKey !== descriptor.identityKey
+    // A stale pin means the peer re-authorized with the account and obtained a new
+    // identity key. descriptor.identityKey has already been validated against the
+    // account directory above, so rotating the pin for the same membership is safe
+    // when the operator opts in via config.rotatePinnedPeerKey.
+    const rotateStalePin = stalePin
+      && this.config.rotatePinnedPeerKey
+      && existing.membershipId === descriptor.membershipId
+    if (stalePin && !rotateStalePin) {
       this.sendControl('connect.rejected', { connectionId: payload.connectionId })
       this.logger.warn('connection rejected by pinned peer identity', {
         clientDeviceId: shortId(payload.clientDeviceId),
       })
       return
     }
-    const peer = existing !== undefined
+    if (rotateStalePin) {
+      this.logger.warn('rotating pinned peer identity for same-membership device', {
+        clientDeviceId: shortId(payload.clientDeviceId),
+      })
+    }
+    const peer = existing !== undefined && !stalePin
       && existing.membershipId === descriptor.membershipId
       && existing.name === descriptor.name
       && existing.platform === descriptor.platform

@@ -75287,6 +75287,7 @@ var entryConfigSchema = s.object({
   hostControl: s.object({ enabled: s.boolean() }),
   loopback: s.object({ ports: s.array(s.number()) }),
   forceRelay: s.boolean(),
+  rotatePinnedPeerKey: s.boolean(),
   logLevel: s.union(["debug", "info", "warn", "error"]),
   reconnect: s.union([
     s.boolean(),
@@ -75328,6 +75329,7 @@ var configSchema = external_exports.object({
   hostControl: external_exports.object({ enabled: external_exports.boolean().optional() }).strict().optional(),
   loopback: external_exports.object({ ports: external_exports.array(external_exports.number().int().min(1024).max(65535)).max(16).optional() }).strict().optional(),
   forceRelay: external_exports.boolean().optional(),
+  rotatePinnedPeerKey: external_exports.boolean().optional(),
   logLevel: external_exports.enum(["debug", "info", "warn", "error"]).optional(),
   reconnect: reconnectSchema.optional(),
   codex: external_exports.object({
@@ -75365,6 +75367,7 @@ function resolveConfig(input3 = {}, env = process.env) {
     terminal: { enabled: parsed.terminal?.enabled ?? (env.DSH_REMOTE_TERMINAL_ENABLED === void 0 || env.DSH_REMOTE_TERMINAL_ENABLED === "true") },
     loopback: { ports: [...new Set(parsed.loopback?.ports ?? [])] },
     forceRelay: parsed.forceRelay ?? false,
+    rotatePinnedPeerKey: parsed.rotatePinnedPeerKey ?? false,
     logLevel: parsed.logLevel ?? "info",
     reconnect: {
       enabled: parsed.reconnect !== false,
@@ -87599,14 +87602,21 @@ var HostServerConnection = class {
       return;
     }
     const existing = this.identities.trustedPeer(descriptor.deviceId);
-    if (existing !== void 0 && existing.publicKey !== descriptor.identityKey) {
+    const stalePin = existing !== void 0 && existing.publicKey !== descriptor.identityKey;
+    const rotateStalePin = stalePin && this.config.rotatePinnedPeerKey && existing.membershipId === descriptor.membershipId;
+    if (stalePin && !rotateStalePin) {
       this.sendControl("connect.rejected", { connectionId: payload.connectionId });
       this.logger.warn("connection rejected by pinned peer identity", {
         clientDeviceId: shortId3(payload.clientDeviceId)
       });
       return;
     }
-    const peer = existing !== void 0 && existing.membershipId === descriptor.membershipId && existing.name === descriptor.name && existing.platform === descriptor.platform ? existing : await this.identities.trustPeer({
+    if (rotateStalePin) {
+      this.logger.warn("rotating pinned peer identity for same-membership device", {
+        clientDeviceId: shortId3(payload.clientDeviceId)
+      });
+    }
+    const peer = existing !== void 0 && !stalePin && existing.membershipId === descriptor.membershipId && existing.name === descriptor.name && existing.platform === descriptor.platform ? existing : await this.identities.trustPeer({
       deviceId: descriptor.deviceId,
       name: descriptor.name,
       platform: descriptor.platform,
