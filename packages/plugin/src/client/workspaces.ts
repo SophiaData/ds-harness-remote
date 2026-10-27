@@ -79,7 +79,9 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const opencodeWorkspaceListId = 'dsh-remote-opencode-workspace-list'
     const claudeWorkspaceListId = 'dsh-remote-claude-workspace-list'
     const [busy, setBusy] = React.useState(false)
-    const [needsAuthorization, setNeedsAuthorization] = React.useState(false)
+    // Remain undecided until local credentials or an explicit auth rejection
+    // establish that login is required. Network failures are not sign-outs.
+    const [needsAuthorization, setNeedsAuthorization] = React.useState<boolean | undefined>(undefined)
     const [email, setEmail] = React.useState('')
     const [password, setPassword] = React.useState('')
     const [loginServerUrl, setLoginServerUrl] = React.useState('https://dsh.r2049.cn')
@@ -490,6 +492,11 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
           return
         }
         try {
+          const authorization = await props.control<{ hasCredentials: boolean }>('client.authorization.status')
+          if (!authorization.hasCredentials) {
+            throw Object.assign(new Error('Remote account authorization is required.'), { code: 'ACCOUNT_AUTH_REQUIRED' })
+          }
+          setNeedsAuthorization(previous => previous === true ? undefined : previous)
           const nextDevices = await props.control<RemoteDevice[]>('devices')
           setDevices(nextDevices)
           setNeedsAuthorization(false)
@@ -977,6 +984,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
             onClick: () => void openLocalWorkspaces(),
           }, t('openLocalWorkspaces')) : null,
           React.createElement(React.Fragment, null,
+            needsAuthorization === undefined && busy
+              ? React.createElement('p', null, t('checkingConnection')) : null,
             needsAuthorization ? React.createElement('section', { className: 'dshRemoteEnable' },
               React.createElement('div', { className: 'dshRemoteLoginHeading' },
                 React.createElement('a', {
@@ -1074,7 +1083,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                       stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
                       'aria-hidden': true,
                     }, React.createElement('path', { d: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z' })))))) : null,
-            needsAuthorization ? null : React.createElement(React.Fragment, null,
+            needsAuthorization !== false ? null : React.createElement(React.Fragment, null,
               selectedHost === undefined ? React.createElement('section', { className: 'dshRemoteHosts', 'aria-label': t('chooseHost') },
                 React.createElement('div', { className: 'dshRemoteSectionHeading' },
                   React.createElement('div', { className: 'dshRemoteSectionTitle' },
@@ -1092,7 +1101,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                   className: `dshRemoteHostList${connectingHost === undefined ? '' : ' isCollapsed'}`,
                   'aria-busy': connectingHost === undefined ? undefined : true,
                 }, listedHosts.length === 0
-                  ? React.createElement('p', null, busy ? t('checkingConnection') : t('noRemoteHosts'))
+                  ? (error !== undefined ? null : React.createElement('p', null, busy ? t('checkingConnection') : t('noRemoteHosts')))
                   : listedHosts.map(device => React.createElement('button', {
                     type: 'button',
                     key: device.deviceId,

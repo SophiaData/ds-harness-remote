@@ -71076,6 +71076,9 @@ var ClientControl = class {
   async handleControl(endpoint, payload, signal) {
     try {
       if (endpoint === "status") return ok(await this.context.detailedStatus());
+      if (endpoint === "client.authorization.status") {
+        return ok({ hasCredentials: await this.context.server.hasStoredAuthorization() });
+      }
       if (endpoint === "devices") return ok(await this.context.devices());
       if (endpoint === "client.account.providers") return ok(await this.context.server.oauthProviders());
       if (endpoint === "client.account.login") {

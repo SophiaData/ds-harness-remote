@@ -1211,12 +1211,15 @@ describe('ClientModeRuntime Host account control', () => {
       authorizeHostWithAccount: vi.fn(async (email: string) => ({ account: email, expiresAt: Date.now() + 60_000, isAdmin: false })),
       authorizeHostWithCode: vi.fn(async () => ({ method: 'host_registration_code' })),
     } satisfies HostAuthorizationControl
+    const hasStoredAuthorization = vi.fn(async () => false)
+    const authenticate = vi.fn(async () => ({ accessToken: 'client-access-token', account: 'owner@example.com' }))
     const runtime = new ClientModeRuntime(
       config(),
       new IdentityStore({ directory }),
       {
         bindIdentity: vi.fn(),
-        authenticate: vi.fn(async () => ({ accessToken: 'client-access-token', account: 'owner@example.com' })),
+        hasStoredAuthorization,
+        authenticate,
       } as unknown as ClientServerApi,
       gateway(),
       logger(),
@@ -1238,6 +1241,18 @@ describe('ClientModeRuntime Host account control', () => {
       authority: 'loopback',
     })
     const signal = new AbortController().signal
+
+    authenticate.mockClear()
+    await expect(handler?.('client.authorization.status', {}, signal)).resolves.toMatchObject({
+      ok: true, value: { hasCredentials: false },
+    })
+    hasStoredAuthorization.mockResolvedValueOnce(true)
+    await expect(handler?.('client.authorization.status', {}, signal)).resolves.toMatchObject({
+      ok: true, value: { hasCredentials: true },
+    })
+    hasStoredAuthorization.mockRejectedValueOnce(new Error('credential store unavailable'))
+    await expect(handler?.('client.authorization.status', {}, signal)).resolves.toMatchObject({ ok: false })
+    expect(authenticate).not.toHaveBeenCalled()
 
     await expect(handler?.('status', {}, signal)).resolves.toMatchObject({
       ok: true,

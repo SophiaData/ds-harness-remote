@@ -777,3 +777,12 @@ Remote Tools 文件下载：remote_download_file 只读官方 workspaceFiles/sta
 Remote upload tool (2026-10-27)：remote_upload_file 仅支持 Harness，先验证 Host/workspace/session 归属，再读取插件运行机器的绝对 localPath，拒绝最终路径符号链接和非普通文件。沿用 workspace.upload.open/chunk/commit/abort 专用上传协议、20 MiB / 64 KiB 上限与 Host 不覆盖发布规则。使用 operationId 内存回执去重，提交结果不确定返回 unknown，不自动重发。返回路径与元数据，不返回文件内容。不增加通用 Host filesystem RPC。
 
 Remote Tools 大文件上传：实际 LAN / 直连 P2P 最大 1 GiB（1024³ bytes），TURN / Relay / unknown 保持 20 MiB；Host 从认证 channel.mode 的动态 getter 取得路径，open/chunk/commit 复查，回退中继后拒绝大文件并清理临时数据；Client 同步检查 getStats().mode。64 KiB 分块不变，工具总超时 1 小时。旧 Host 仍可能按 20 MiB 拒绝。下载限额未调整。
+
+## First-install Remote authorization view (2026-10-27)
+
+Remote 窗口先通过 loopback `client.authorization.status` 只读检查本地 Client 凭据，
+不刷新凭据、不注册设备、不发起 Server 请求。无凭据显示登录；有凭据再发现 Host，
+成功后展示列表。首次检查期间保持未决状态；网络或本地读取失败展示错误并允许刷新，
+保留已知列表，不将失败解释为退出登录；明确授权错误码才回登录。空主机文案仅用于
+成功的空列表，不用于请求失败。Plugin check、client-runtime 17 个核心测试、build、
+DSH bundle 与 diff check 通过；未新增 Windows 首次安装或跨设备验收。
