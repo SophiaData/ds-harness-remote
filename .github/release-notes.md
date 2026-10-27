@@ -14,6 +14,8 @@
 - 修复连续点击新会话按钮创建多余空会话的问题（#175）。
 - 改进 Android 息屏连接与唤醒恢复（#172）。
 
+感谢 @dreamfarer-space（#172、#174、#175、#176）、@bluesmilery（#173）和 @seewhyme（#179）的贡献，也感谢 @xiongyuyang 与 @Sandwich-git 对本版本相关工作的支持。
+
 ## English
 
 **v0.5.20 · Android build 65**
@@ -29,3 +31,5 @@
 - Add attachments from Android's system file picker (#174).
 - Prevent repeated new-session taps from creating redundant empty conversations (#175).
 - Improve Android screen-off connections and recovery on resume (#172).
+
+Thanks @dreamfarer-space (#172, #174, #175, #176), @bluesmilery (#173), and @seewhyme (#179) for their contributions, with additional thanks to @xiongyuyang and @Sandwich-git for their support on work included in this release.

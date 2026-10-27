@@ -30,6 +30,8 @@ Android build 65.
 - 修复连续点击新会话按钮创建多余空会话的问题（#175）。
 - 改进 Android 息屏连接与唤醒恢复（#172）。
 
+感谢 @dreamfarer-space（#172、#174、#175、#176）、@bluesmilery（#173）和 @seewhyme（#179）的贡献，也感谢 @xiongyuyang 与 @Sandwich-git 对本版本相关工作的支持。
+
 ## 0.5.19 — 2026-10-26
 
 Android build 64.
