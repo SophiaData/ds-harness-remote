@@ -4,7 +4,7 @@ import * as Application from 'expo-application'
 import { File, Paths } from 'expo-file-system'
 import { getContentUriAsync } from 'expo-file-system/legacy'
 import * as IntentLauncher from 'expo-intent-launcher'
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { Check, ChevronRight, Download, ExternalLink, Info, KeyRound, Laptop, LockKeyhole, MoreVertical, QrCode as QrCodeIcon, RotateCcw, Settings, type LucideIcon } from 'lucide-react-native'
 import { useAppStore } from '../state/store'
 import type { QrLoginStart } from '../state/store-state'
@@ -55,6 +55,8 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
   const busy = useAppStore(state => state.busyAction === 'server')
   const language = useAppStore(state => state.language)
   const oauthBusy = useAppStore(state => state.busyAction === 'oauth')
+  const pendingOAuthLoginMethod = useAppStore(state => state.pendingOAuthLoginMethod)
+  const oauthFlowBusy = oauthBusy || pendingOAuthLoginMethod !== undefined
   const selectServer = useAppStore(state => state.selectServer)
   const configure = useAppStore(state => state.configureServer)
   const startOAuth = useAppStore(state => state.startOAuth)
@@ -71,6 +73,7 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
   const serverDirty = serverDraft.trim() !== serverUrl
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const preferredLoginMethod: SetupLoginMethod = language.startsWith('zh-') ? 'oauth' : 'google-oauth'
   const [loginMethod, setLoginMethod] = useState<SetupLoginMethod>(preferredLoginMethod)
   const [showQr, setShowQr] = useState(false)
@@ -100,7 +103,7 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
   }, [])
   const { width, height, sheetMaxHeight } = useResponsiveLayout()
   // Give tablets a larger code while keeping the same login tabs on all screens.
-  const largeScreen = Math.min(width, height) >= 600
+  const largeScreen = Math.min(width, height) >= 600 && Math.min(width, height) / PixelRatio.get() >= 600
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
 
@@ -120,12 +123,13 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
       }
       setLoginProviders(result.providers)
       setProvidersPhase('ready')
-      setLoginMethod(current => current === 'password' || result.providers.some(provider => provider.id === qrProviderFor(current))
-        ? current
-        : ([preferredLoginMethod, 'oauth', 'github-oauth', 'google-oauth'] as const).find(method => result.providers.some(provider => provider.id === qrProviderFor(method))) ?? 'password')
+      const nextMethod = ([preferredLoginMethod, 'oauth', 'github-oauth', 'google-oauth'] as const)
+        .find(method => result.providers.some(provider => provider.id === qrProviderFor(method))) ?? 'password'
+      setLoginMethod(nextMethod)
+      setShowQr(false)
     })
     return () => { cancelled = true }
-  }, [serverUrl, providerReload, listLoginProviders, preferredLoginMethod])
+  }, [serverUrl, providerReload, listLoginProviders, preferredLoginMethod, largeScreen])
 
   const closeServerEditor = () => {
     if (busy) return
@@ -290,27 +294,14 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
     setLoginMethod(method)
     setQrLogin(undefined)
     setQrPhase('idle')
-    if (method === 'password') setShowQr(false)
+    if (method === 'password') {
+      setShowQr(false)
+      setShowPassword(true)
+    }
     else if (showQr) void refreshQr(method)
   }
 
-  const qrMethods = availableMethods.filter(method => loginProviders.some(provider => provider.id === qrProviderFor(method) && provider.qrStartUrl !== undefined))
   const oauthMethods = availableMethods.filter(method => method !== 'password')
-
-  const toggleQr = () => {
-    qrRun.current += 1
-    const opening = !showQr
-    // QR needs a provider; fall back to the first QR-capable one while the email form is shown.
-    const method = qrMethods.includes(loginMethod) ? loginMethod : qrMethods[0]
-    if (opening && method === undefined) return
-    setShowQr(opening)
-    setQrLogin(undefined)
-    setQrPhase('idle')
-    if (opening && method !== undefined) {
-      setLoginMethod(method)
-      void refreshQr(method)
-    }
-  }
 
   const signInWithProvider = (method: SetupLoginMethod) => {
     if (showQr) {
@@ -327,16 +318,6 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
 
   const qrContent = !showQr ? null : (
     <View style={styles.qrPanel}>
-      {qrMethods.length > 1 && (
-        <View style={[styles.methodTabs, styles.pillAction]}>
-          {qrMethods.map(method => (
-            <Pressable key={method} accessibilityRole="tab" accessibilityState={{ selected: loginMethod === method, disabled: busy }} disabled={busy} onPress={() => chooseLoginMethod(method)} style={[styles.methodTab, loginMethod === method && styles.methodTabActive]}>
-              <Text style={[styles.methodTabText, loginMethod === method && styles.methodTabTextActive]} numberOfLines={1}>{loginMethodLabel(method)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-      <Text style={styles.qrTitle}>{loginMethodLabel(loginMethod)} · {zhCN.setup.qrScanTitle}</Text>
       {qrPhase === 'loading'
         ? <View style={styles.qrPlaceholder}><ActivityIndicator color={colors.primary} accessibilityLabel={zhCN.setup.qrWaiting} /></View>
         : qrPhase === 'unsupported'
@@ -352,19 +333,6 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
                     label={`${zhCN.setup.qrScanTitle}. ${zhCN.setup.qrScanHint}`}
                   />
                 : null}
-      {(qrPhase === 'waiting' || qrPhase === 'expired') && <Text style={styles.qrHint}>{zhCN.setup.qrScanHint}</Text>}
-      <View style={styles.pillAction}>
-        <Button
-          label={zhCN.setup.qrRefresh}
-          variant="secondary"
-          onPress={() => void refreshQr()}
-          loading={qrPhase === 'loading'}
-          disabled={busy || serverDirty}
-        />
-      </View>
-      <Pressable accessibilityRole="button" onPress={toggleQr} style={styles.textLink}>
-        <Text style={styles.textLinkLabel}>{zhCN.setup.emailSignIn}</Text>
-      </Pressable>
     </View>
   )
 
@@ -410,22 +378,34 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
     </>
   )
 
-  const providerIcon = (method: SetupLoginMethod) => method === 'oauth'
-    ? <ZhihuIcon size={26} color={colors.background} />
-    : method === 'github-oauth'
-      ? <GithubIcon size={28} color={colors.background} />
-      : <GoogleIcon size={26} />
+  const providerIcon = (method: SetupLoginMethod) => method === 'password'
+    ? <KeyRound size={26} color={colors.background} />
+    : method === 'oauth'
+      ? <ZhihuIcon size={26} color={colors.primary} />
+      : method === 'github-oauth'
+        ? <GithubIcon size={28} color={colors.background} />
+        : <GoogleIcon size={26} />
 
-  const providerLabel = (method: SetupLoginMethod) => method === 'oauth'
+  const providerLabel = (method: SetupLoginMethod) => method === 'password'
+    ? zhCN.setup.passwordMethod
+    : method === 'oauth'
     ? zhCN.setup.zhihu
     : method === 'github-oauth' ? zhCN.setup.github : zhCN.setup.google
+
+  const providerName = (method: SetupLoginMethod) => method === 'password'
+    ? zhCN.setup.passwordMethod
+    : method === 'oauth' ? zhCN.setup.oauth
+      : method === 'github-oauth' ? zhCN.setup.githubOAuth : 'Google'
+  const providerActionLabel = (method: SetupLoginMethod) => language.startsWith('zh-')
+    ? method === 'password' ? '使用邮箱密码登录' : `使用「${providerName(method)}」授权登录`
+    : method === 'password' ? `Sign in with ${providerName(method)}` : `Continue with ${providerName(method)}`
 
   const whaleWidth = largeScreen ? 240 : 196
 
   return (
     <View style={styles.flex}>
       <BlurHeaderFrame header={<TopBar title="" onBack={onBack} action={<IconButton label={zhCN.settings.more} icon={MoreVertical} onPress={onMore} />} />}>
-        <Screen fill>
+        <Screen fill refreshing={providersPhase === 'loading'} onRefresh={() => setProviderReload(value => value + 1)}>
           <View style={[styles.hero, largeScreen && styles.formLarge]}>
             <Svg
               width={whaleWidth}
@@ -435,48 +415,59 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
             >
               <Path d={FISH_LOGO_PATH} fill={colors.ink} />
             </Svg>
-            <View style={styles.wordmarkRow} accessible accessibilityRole="header" accessibilityLabel="DeepSeek Harness Remote">
-              <Text style={styles.wordmark}>HARNESS</Text>
-              <View style={styles.wordmarkDot} />
+            <View style={styles.wordmarkRow} accessible accessibilityRole="header" accessibilityLabel="DS Harness Remote">
+              <Text style={styles.wordmark}>DSH REMOTE</Text>
             </View>
-            <Text style={styles.wordmarkSub}>DEEPSEEK · REMOTE</Text>
           </View>
 
           <View style={[styles.loginCard, largeScreen && styles.formLarge]}>
-            <Text style={styles.loginCardTitle}>{zhCN.setup.heroSignIn}</Text>
+            <Text style={styles.loginCardTitle}>{language.startsWith('zh-') ? '请选择登录方式' : 'Choose a sign-in method'}</Text>
+          {providersPhase === 'ready' && oauthMethods.length > 0 && (
+            <>
+              <View style={[styles.providerRow, largeScreen && styles.providerRowWide]}>
+                {[...oauthMethods, 'password' as const].map(method => (
+                  <Pressable
+                    key={method}
+                    accessibilityRole="button"
+                    accessibilityLabel={providerLabel(method)}
+                    accessibilityState={{ disabled: busy || oauthFlowBusy || serverDirty, selected: loginMethod === method }}
+                    disabled={busy || oauthFlowBusy || serverDirty}
+                    onPress={() => {
+                      if (method === 'password') {
+                        setShowQr(false)
+                        setShowPassword(true)
+                        setLoginMethod('password')
+                        return
+                      }
+                      setShowPassword(false)
+                      setLoginMethod(method)
+                      setShowQr(false)
+                    }}
+                    style={({ pressed }) => [styles.providerButton, loginMethod === method && styles.providerButtonSelected, pressed && styles.providerButtonPressed]}
+                  >
+                    {providerIcon(method)}
+                  </Pressable>
+                ))}
+              </View>
+              {loginMethod !== 'password' && (
+                <View style={[styles.providerAction, largeScreen && styles.providerActionWide]}><Button label={providerActionLabel(loginMethod)} onPress={() => signInWithProvider(loginMethod)} loading={oauthFlowBusy} disabled={busy || oauthFlowBusy || serverDirty} /></View>
+              )}
+              {largeScreen && loginMethod !== 'password' && (
+                <Pressable accessibilityRole="button" accessibilityLabel={zhCN.setup.qr} disabled={busy || oauthFlowBusy || serverDirty} onPress={() => { setShowQr(true); void refreshQr(loginMethod) }} style={styles.qrEntry}>
+                  <Text style={styles.qrEntryText}>{zhCN.setup.qr}</Text>
+                </Pressable>
+              )}
+            </>
+          )}
+
             {providersPhase === 'loading'
               ? <ActivityIndicator color={colors.primary} />
               : <>
                   {providersPhase === 'failed' && <Button label={zhCN.common.retry} variant="secondary" onPress={() => setProviderReload(value => value + 1)} />}
-                  {qrContent ?? emailContent}
+                  {qrContent ?? (showPassword ? emailContent : null)}
                 </>}
           </View>
 
-          {providersPhase === 'ready' && oauthMethods.length > 0 && (
-            <View style={styles.providerRow}>
-              {oauthMethods.map(method => (
-                <Pressable
-                  key={method}
-                  accessibilityRole="button"
-                  accessibilityLabel={providerLabel(method)}
-                  accessibilityHint={zhCN.setup.oauthHint}
-                  accessibilityState={{ disabled: busy || oauthBusy || serverDirty, busy: oauthBusy && loginMethod === method }}
-                  disabled={busy || oauthBusy || serverDirty}
-                  onPress={() => signInWithProvider(method)}
-                  style={({ pressed }) => [styles.providerButton, pressed && styles.providerButtonPressed]}
-                >
-                  {oauthBusy && loginMethod === method ? <ActivityIndicator color={colors.background} /> : providerIcon(method)}
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {supportsQrAny && !serverDirty && providersPhase === 'ready' && !showQr && (
-            <Pressable accessibilityRole="button" accessibilityLabel={zhCN.setup.qr} disabled={busy} onPress={toggleQr} style={styles.qrLink}>
-              <QrCodeIcon size={16} color={colors.muted} />
-              <Text style={styles.qrLinkText}>{zhCN.setup.qr}</Text>
-            </Pressable>
-          )}
 
           <View style={styles.loginFooter}>
             <Pressable accessibilityRole="link" accessibilityLabel="GitHub/liguobao"
@@ -501,11 +492,11 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
                   setShowQr(false)
                   setServerDraft(value)
                   setServerError(undefined)
-                }} editable={!busy && !oauthBusy} autoCapitalize="none" autoCorrect={false} keyboardType="url" hint={zhCN.setup.switchServerHint} placeholder="https://remote.example.com" />
+                }} editable={!busy && !oauthFlowBusy} autoCapitalize="none" autoCorrect={false} keyboardType="url" hint={zhCN.setup.switchServerHint} placeholder="https://remote.example.com" />
                 {serverError !== undefined && <Text accessibilityRole="alert" style={styles.preferenceError}>{serverError}</Text>}
                 <View style={styles.serverActions}>
                   <View style={styles.flex}>
-                    <Button label={zhCN.setup.saveServer} onPress={() => void saveServer()} loading={busy} disabled={oauthBusy || !serverDirty || serverDraft.trim() === ''} />
+                    <Button label={zhCN.setup.saveServer} onPress={() => void saveServer()} loading={busy} disabled={oauthFlowBusy || !serverDirty || serverDraft.trim() === ''} />
                   </View>
                   <View style={styles.flex}>
                     <Button label={zhCN.common.cancel} variant="secondary" disabled={busy} onPress={closeServerEditor} />
@@ -1151,12 +1142,11 @@ function createStyles(colors: ThemeColors) {
   // the screens that opt in (portrait phones never exceed the cap).
   contentColumn: { width: '100%', alignSelf: 'center' },
   hero: { width: '100%', alignItems: 'center', paddingTop: spacing.lg },
-  wordmarkRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: spacing.md },
-  wordmark: { fontSize: 46, lineHeight: 50, fontWeight: '900', letterSpacing: -1.5, color: colors.ink },
-  wordmarkDot: { width: 14, height: 14, marginLeft: 4, marginBottom: 8, backgroundColor: colors.primary },
-  wordmarkSub: { ...type.caption, color: colors.muted, letterSpacing: 4, marginTop: 2, fontWeight: '600' },
-  loginCard: { marginTop: spacing.xl, gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface, elevation: 2, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18 },
-  loginCardTitle: { ...type.heading, fontSize: 20, color: colors.ink, textAlign: 'center', marginBottom: spacing.sm },
+  wordmarkRow: { alignItems: 'center', marginTop: spacing.md },
+  wordmark: { fontSize: 34, lineHeight: 40, fontWeight: '900', letterSpacing: -1, color: colors.ink },
+  wordmarkSub: { ...type.caption, color: colors.muted, letterSpacing: 2, marginTop: 2, fontWeight: '600' },
+  loginCard: { marginTop: spacing.md, gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  loginCardTitle: { ...type.heading, fontSize: 20, color: colors.ink, textAlign: 'center' },
   pillInput: { minHeight: 52, borderRadius: 26, paddingHorizontal: spacing.lg, backgroundColor: colors.surfaceStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, color: colors.ink, fontSize: 16 },
   pillButton: { minHeight: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs, backgroundColor: colors.surfaceStrong },
   pillButtonReady: { backgroundColor: colors.ink },
@@ -1166,10 +1156,15 @@ function createStyles(colors: ThemeColors) {
   pillAction: { alignSelf: 'stretch' },
   textLink: { minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.sm },
   textLinkLabel: { ...type.smallStrong, color: colors.primary },
-  providerRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xxl, marginTop: spacing.xxl },
-  providerButton: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink, elevation: 4, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 10 },
+  providerRow: { flexDirection: 'row', justifyContent: 'center', alignSelf: 'center', width: 276, gap: spacing.sm, marginTop: spacing.sm },
+  providerRowWide: { width: 336, gap: spacing.xxl },
+  providerAction: { width: 276, alignSelf: 'center' },
+  providerActionWide: { width: 336 },
+  providerButton: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
+  providerButtonSelected: { borderWidth: 2, borderColor: colors.primary },
   providerButtonPressed: { opacity: 0.75 },
-  qrLink: { flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: spacing.xs, minHeight: 44, marginTop: spacing.md, paddingHorizontal: spacing.sm },
+  qrEntry: { alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: spacing.sm },
+  qrEntryText: { ...type.smallStrong, color: colors.primary },
   qrLinkText: { ...type.small, color: colors.muted },
   loginFooter: { marginTop: 'auto', paddingTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   loginCredit: { ...type.caption, color: colors.muted },
@@ -1190,11 +1185,6 @@ function createStyles(colors: ThemeColors) {
   serverLabel: { ...type.smallStrong, color: colors.muted },
   oauthHint: { ...type.caption, color: colors.muted, textAlign: 'center' },
   formLarge: { width: '100%', maxWidth: 560, alignSelf: 'center' },
-  qrEntry: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  qrEntryPressed: { backgroundColor: colors.surfaceStrong },
-  qrEntryCopy: { flex: 1, gap: 2 },
-  qrEntryText: { ...type.smallStrong, color: colors.ink },
-  qrEntryHint: { ...type.caption, color: colors.muted },
   qrPanel: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   qrTitle: { ...type.heading, color: colors.ink, textAlign: 'center' },
   qrPlaceholder: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
