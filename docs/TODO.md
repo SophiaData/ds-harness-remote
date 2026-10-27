@@ -339,6 +339,7 @@ Typert Remote contract，不得在 Plugin Host 恢复 `sessions.*`、`session.se
 - [ ] 验证 Windows/Linux PTY、shell 配置、resize 与 job control。单独记录 pipe fallback 限制。
 - [ ] 验证无窗口持有者与 follower 时的两小时 idle 回收。验证活跃终端保持运行。
 - [x] 白名单 IPv4 loopback HTTP/WebSocket 通道与独立本机预览 origin
+- [ ] 接入 Harness 浏览器地址解析前的异步导航扩展点，将远程模式下的 localhost/端口输入转为已授权的 Remote 预览 URL。当前仅有后端 preview.open，无前端入口；暂时隐藏远程模式下原生侧栏开始页的浏览器入口，避免误访问 Desktop 本机。此隐藏不禁用已有浏览器标签页、快捷键或聊天链接打开。
 - [x] Relay 背压、串行加密发送、有界 stream 消费队列
 - [ ] Windows/Linux 真机、跨机高延迟 Relay、大输出终端、多设备回归
 - [ ] 真实应用复杂 HMR、硬编码 localhost、Cookie/CSP 和浏览器兼容性回归

@@ -353,6 +353,15 @@ window.__ModuleLoader__.load({
         },
       })
       ctx.effect(() => () => statusFeed.close(), 'ds-harness-remote: status stream')
+      ctx.effect(() => {
+        const unsubscribe = statusFeed.subscribe(status => {
+          document.documentElement.classList.toggle('dshRemoteBrowserUnavailable', status.mode === 'remote')
+        })
+        return () => {
+          unsubscribe()
+          document.documentElement.classList.remove('dshRemoteBrowserUnavailable')
+        }
+      }, 'ds-harness-remote: hide local browser entry in remote mode')
       ctx.effect(() => subscribeRemoteRecovery(statusFeed, () => ctx.connection.reconnect?.()), 'ds-harness-remote: carrier recovery')
       ctx.effect(() => {
         let disposed = false

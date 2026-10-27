@@ -3045,6 +3045,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function installStyle(clientModuleId2) {
     let style = document.createElement("style");
     return style.dataset.plugin = clientModuleId2, style.dataset.pluginCss = "dsh-remote", style.textContent = [
+      // Browser navigation still targets the Desktop machine until Harness exposes
+      // a Remote URL resolver. Hide the native guide entry in Remote mode only.
+      'html.dshRemoteBrowserUnavailable [data-sidebar-right-guide-entry="browser"]{display:none!important}',
       'html.dshRemoteTargetActive button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A"],html.dshRemoteTargetActive button[aria-label="Add workspace"]{display:none!important}',
       'html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="\u6307\u4EE4"],html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="Commands"]{display:none!important}',
       "[data-dsh-remote-hidden-action]{display:none!important}",
@@ -4840,7 +4843,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
             console.warn("ds-harness-remote: status event stream unavailable, polling status instead:", reason);
           }
         });
-        ctx.effect(() => () => statusFeed.close(), "ds-harness-remote: status stream"), ctx.effect(() => subscribeRemoteRecovery(statusFeed, () => ctx.connection.reconnect?.()), "ds-harness-remote: carrier recovery"), ctx.effect(() => {
+        ctx.effect(() => () => statusFeed.close(), "ds-harness-remote: status stream"), ctx.effect(() => {
+          let unsubscribe = statusFeed.subscribe((status) => {
+            document.documentElement.classList.toggle("dshRemoteBrowserUnavailable", status.mode === "remote");
+          });
+          return () => {
+            unsubscribe(), document.documentElement.classList.remove("dshRemoteBrowserUnavailable");
+          };
+        }, "ds-harness-remote: hide local browser entry in remote mode"), ctx.effect(() => subscribeRemoteRecovery(statusFeed, () => ctx.connection.reconnect?.()), "ds-harness-remote: carrier recovery"), ctx.effect(() => {
           let disposed = !1, unsubscribeWorkspaces, unsubscribeSessions, selection, opening = !1, reconcile = () => {
             if (disposed || opening || selection === void 0) return;
             let pending = selection, workspaceSnapshot = ctx.workspaces.list.getSnapshot();
