@@ -1619,6 +1619,11 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
           <View style={styles.splitSidebar}>
             <HostSessionsDrawer
               inline
+              onOpenWorkspaces={() => {
+                Keyboard.dismiss()
+                if (onOpenWorkspaces) onOpenWorkspaces()
+                else onBack()
+              }}
               onBack={onBack}
               backLabel={zhCN.chat.backToWorkspaces}
               onClose={() => Keyboard.dismiss()}
@@ -2048,6 +2053,12 @@ export function ChatScreen({ onBack, onOpenDevices, onNewSession, onOpenWorkspac
         }}
       />}
       {sessionsOpen && !tabletSplit && <HostSessionsDrawer
+        onOpenWorkspaces={() => {
+          Keyboard.dismiss()
+          setSessionsOpen(false)
+          if (onOpenWorkspaces) onOpenWorkspaces()
+          else onBack()
+        }}
         onBack={() => {
           Keyboard.dismiss()
           setSessionsOpen(false)

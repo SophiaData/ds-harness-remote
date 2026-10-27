@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  ActivityIndicator,
   Animated,
   PanResponder,
   TextInput,
   SectionList,
+  ScrollView,
   Modal,
   Pressable,
   StyleSheet,
@@ -12,7 +14,6 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native'
-import Svg, { Path } from 'react-native-svg'
 import * as Haptics from 'expo-haptics'
 import {
   ArrowLeft,
@@ -30,17 +31,17 @@ import {
 } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAppStore } from '../state/store'
-import type { RemoteSession, WorkspaceView } from '../types'
+import type { AgentBackend, RemoteSession, WorkspaceView } from '../types'
 import { strings } from '../locales/i18n'
-import { FISH_LOGO_PATH, FISH_LOGO_VIEWBOX } from '../ui/fish-logo'
 import { radius, spacing, type } from '../ui/theme'
 import { useTheme, type ThemeColors } from '../ui/theme-context'
 import { useThemedStyles } from '../ui/use-themed-styles'
 import { resolveSessionDisplayTitle } from './session-title'
 import { browseStatus } from '../lib/backend-groups'
+import { loadHostSessionsDrawerGroups, saveHostSessionsDrawerGroup } from '../services/storage'
 import { clampDrawerTranslate, shouldConfirmSwipeLeftClose, shouldStartSwipeLeftToClose } from '../lib/gesture-swipe-rules'
 
-const SESSION_PAGE_SIZE = 8
+const SESSION_PAGE_SIZE = 3
 
 /** 浮窗相对工具栏底部的间距 */
 const POPOVER_OFFSET = 4
@@ -63,6 +64,7 @@ function formatRelativeTime(timestamp?: number | string): string {
 export function HostSessionsDrawer({
   onBack,
   onClose,
+  onOpenWorkspaces,
   onSelect,
   onOpenAutomationTasks,
   inline = false,
@@ -70,13 +72,22 @@ export function HostSessionsDrawer({
 }: {
   onBack: () => void
   onClose: () => void
+  onOpenWorkspaces: () => void
   onSelect: (session: RemoteSession) => Promise<void>
   onOpenAutomationTasks?: () => void
   inline?: boolean
   backLabel?: string
 }) {
   const language = useAppStore(state => state.language)
+  const deviceId = useAppStore(state => state.selectedDevice?.deviceId)
+  const deviceName = useAppStore(state => state.selectedDevice?.name)
   const sessions = useAppStore(state => state.sessions)
+  const recentIds = useAppStore(state => state.currentWorkSessionIds)
+  const availableBackends = useAppStore(state => [
+    'harness', state.codexAvailable && 'codex', state.cursorAvailable && 'cursor',
+    state.antigravityAvailable && 'antigravity', state.piAvailable && 'pi',
+    state.opencodeAvailable && 'opencode', state.claudeAvailable && 'claude',
+  ].filter(Boolean).join(','))
   const lifecycles = useAppStore(state => state.sessionLifecycles)
   const selected = useAppStore(state => state.selectedSession)
   const archivedIds = useAppStore(state => state.archivedSessionIds)
@@ -86,6 +97,21 @@ export function HostSessionsDrawer({
   const refreshWorkspaces = useAppStore(state => state.refreshWorkspaces)
   const createSession = useAppStore(state => state.createSession)
 
+  const [backend, setBackend] = useState<AgentBackend>(selected?.backend ?? useAppStore.getState().workspaceCatalog?.backend ?? 'harness')
+  const backends = [...new Set<AgentBackend>([
+    ...availableBackends.split(',') as AgentBackend[],
+    ...workspaces.map(workspace => workspace.backend ?? 'harness'),
+    ...(selected ? [selected.backend ?? 'harness'] : []),
+  ])]
+  const backendWorkspaces = useMemo(() => workspaces.filter(workspace => (workspace.backend ?? 'harness') === backend), [workspaces, backend])
+  useEffect(() => {
+    setBackend(selected?.backend ?? useAppStore.getState().workspaceCatalog?.backend ?? 'harness')
+    setVisibleCounts({})
+  }, [deviceId, selected?.backend])
+  useEffect(() => {
+    if (connected) void refreshWorkspaces(backend)
+  }, [backend, connected, deviceId, refreshWorkspaces])
+
   const [refreshing, setRefreshing] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -93,7 +119,27 @@ export function HostSessionsDrawer({
   const [groupBy, setGroupBy] = useState<'workspace' | 'list'>('workspace')
   const [orderBy, setOrderBy] = useState<'manual' | 'updated'>('updated')
   const [filterMode, setFilterMode] = useState<'hideArchived' | 'all' | 'archivedOnly'>('hideArchived')
-  const [expandedWorkspaces, setExpandedWorkspaces] = useState<Record<string, boolean>>({})
+  const [groupsByDevice, setGroupsByDevice] = useState<Record<string, Record<string, boolean>>>({})
+  const [loadedDeviceId, setLoadedDeviceId] = useState<string>()
+  const [groupStorageError, setGroupStorageError] = useState<string>()
+  const groupsReady = deviceId === undefined || loadedDeviceId === deviceId
+  const expandedWorkspaces = deviceId === undefined ? {} : groupsByDevice[deviceId] ?? {}
+  useEffect(() => {
+    if (deviceId === undefined) return
+    let cancelled = false
+    setLoadedDeviceId(undefined)
+    setGroupStorageError(undefined)
+    void loadHostSessionsDrawerGroups(deviceId).then(saved => {
+      if (!cancelled) setGroupsByDevice(current => ({
+        ...current, [deviceId]: { ...saved, ...current[deviceId] },
+      }))
+    }).catch(() => {
+      if (!cancelled) setGroupStorageError(strings.comfort.cacheRestoreFailed)
+    }).finally(() => {
+      if (!cancelled) setLoadedDeviceId(deviceId)
+    })
+    return () => { cancelled = true }
+  }, [deviceId])
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({})
 
   // 浮窗定位：记录工具栏在覆盖层坐标系中的底部位置（默认兜底 200，测量后精准对齐）
@@ -128,7 +174,7 @@ export function HostSessionsDrawer({
     if (now - lastNewSessionTimeRef.current < 800) return
     if (creatingSessionRef.current || busy !== undefined || !connected) return
 
-    const targetWs = workspaces[0]?.workspaceId
+    const targetWs = backendWorkspaces[0]?.workspaceId
     const currentMessages = selected === undefined ? [] : useAppStore.getState().messages[selected.sessionId] ?? []
     const isCurrentBlank = selected !== undefined && currentMessages.length === 0 && selected.blank !== false
     const currentWs = workspaces.find(w => selected !== undefined && w.sessionIds.includes(selected.sessionId))
@@ -151,18 +197,29 @@ export function HostSessionsDrawer({
     if (refreshing || busy !== undefined || !connected) return
     setRefreshing(true)
     try {
-      await refreshWorkspaces()
+      await refreshWorkspaces(backend)
     } finally {
       setRefreshing(false)
     }
   }
 
   const toggleWorkspace = (id: string) => {
-    setExpandedWorkspaces(prev => ({ ...prev, [id]: !(prev[id] ?? true) }))
+    if (deviceId === undefined || !groupsReady) return
+    const expanded = !(expandedWorkspaces[id] ?? true)
+    setGroupsByDevice(current => ({ ...current,
+      [deviceId]: { ...current[deviceId], [id]: expanded },
+    }))
+    void saveHostSessionsDrawerGroup(deviceId, id, expanded).catch(() => {
+      if (useAppStore.getState().selectedDevice?.deviceId === deviceId) {
+        setGroupStorageError(strings.comfort.cacheSaveFailed)
+      }
+    })
   }
 
   const filteredSessions = useMemo(() => {
-    let list = [...sessions]
+    const known = selected && !sessions.some(session => session.sessionId === selected.sessionId)
+      ? [selected, ...sessions] : sessions
+    let list = known.filter(session => (session.backend ?? 'harness') === backend)
     if (filterMode === 'hideArchived') {
       list = list.filter(s => !archivedIds.includes(s.sessionId))
     } else if (filterMode === 'archivedOnly') {
@@ -176,31 +233,39 @@ export function HostSessionsDrawer({
       list.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
     }
     return list
-  }, [sessions, archivedIds, filterMode, searchQuery, orderBy])
+  }, [sessions, selected, backend, archivedIds, filterMode, searchQuery, orderBy])
 
   const sections = useMemo(() => {
     if (groupBy === 'list') {
       return [{ id: 'all', title: strings.sessions.allSessions, data: filteredSessions, total: filteredSessions.length, expanded: true }]
     }
+    const recentOrder = new Map(recentIds.map((id, index) => [id, index]))
+    if (selected) recentOrder.set(selected.sessionId, recentIds.length)
+    const recent = filteredSessions.filter(session => recentOrder.has(session.sessionId))
+      .sort((a, b) => recentOrder.get(b.sessionId)! - recentOrder.get(a.sessionId)!).slice(0, 5)
+    const recentExpanded = expandedWorkspaces[`recent:${backend}`] ?? true
+    const recentSections = recent.length ? [{ id: `recent:${backend}`, title: strings.comfort.recent,
+      data: recentExpanded ? recent : [], total: recent.length, expanded: recentExpanded }] : []
     const wsList: Array<WorkspaceView | { workspaceId: string; title: string; path: string; sessionIds: string[] }> =
-      workspaces.length > 0 ? workspaces : [{ workspaceId: 'default', title: 'Default', path: '', sessionIds: [] }]
-    return wsList.map(ws => {
+      backendWorkspaces.length > 0 ? backendWorkspaces : [{ workspaceId: 'default', title: 'Default', path: '', sessionIds: [] }]
+    return [...recentSections, ...wsList.map(ws => {
       const isDefault = ws.workspaceId === 'default'
       const wsSessions = filteredSessions.filter(s =>
-        isDefault ? !workspaces.some(w => w.sessionIds.includes(s.sessionId)) : ws.sessionIds.includes(s.sessionId)
+        isDefault ? !backendWorkspaces.some(w => w.sessionIds.includes(s.sessionId)) : ws.sessionIds.includes(s.sessionId)
       )
-      const isExpanded = expandedWorkspaces[ws.workspaceId] ?? true
-      const limit = visibleCounts[ws.workspaceId] ?? SESSION_PAGE_SIZE
+      const groupId = `workspace:${backend}:${ws.workspaceId}`
+      const isExpanded = expandedWorkspaces[groupId] ?? true
+      const limit = visibleCounts[groupId] ?? SESSION_PAGE_SIZE
       const title = ws.title || ws.path || ws.workspaceId
       return {
-        id: ws.workspaceId,
+        id: groupId,
         title,
         total: wsSessions.length,
         expanded: isExpanded,
         data: isExpanded ? wsSessions.slice(0, limit) : [],
       }
-    })
-  }, [groupBy, workspaces, filteredSessions, expandedWorkspaces, visibleCounts, language])
+    })]
+  }, [groupBy, backendWorkspaces, backend, filteredSessions, recentIds, selected, expandedWorkspaces, visibleCounts, language])
 
   // 手势与抽屉动画
   const { width: screenWidth } = useWindowDimensions()
@@ -340,22 +405,13 @@ export function HostSessionsDrawer({
 
   const content = (
     <View ref={containerRef} style={styles.container} collapsable={false}>
-      {/* 品牌顶部区 */}
+      {/* 当前主机 */}
       <View style={styles.brandHeader}>
-        <View style={styles.brandLeft}>
-          <Svg
-            width={18}
-            height={18}
-            viewBox={`0 0 ${FISH_LOGO_VIEWBOX.width} ${FISH_LOGO_VIEWBOX.height}`}
-            fill={colors.ink}
-          >
-            <Path d={FISH_LOGO_PATH} />
-          </Svg>
-          <Text style={styles.brandTitle}>deepseek</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>HARNESS</Text>
-          </View>
-        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${deviceName ?? strings.devices.title} · ${strings.chat.backToWorkspaces}`}
+          onPress={onOpenWorkspaces} hitSlop={8}
+          style={({ pressed }) => [styles.brandLeft, pressed && styles.pressedBg]}>
+          <Text style={styles.brandTitle} numberOfLines={1}>{deviceName ?? strings.devices.title}</Text>
+        </Pressable>
         <View style={styles.brandRight}>
           <Pressable
             accessibilityRole="button"
@@ -402,6 +458,15 @@ export function HostSessionsDrawer({
         <Clock size={16} color={colors.muted} />
         <Text style={styles.navItemText}>{strings.automation.nav}</Text>
       </Pressable>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.xxs }}>
+        {backends.map(value => <Pressable key={value} accessibilityRole="tab"
+          accessibilityState={{ selected: backend === value }} onPress={() => setBackend(value)}
+          style={({ pressed }) => [styles.backendTab, backend === value && styles.sessionRowSelected, pressed && styles.pressedBg]}>
+          <Text style={styles.navItemText}>{value === 'harness' ? 'DSH' : value === 'codex' ? 'Codex' : value}</Text>
+        </Pressable>)}
+      </ScrollView>
 
       {/* Workspaces 标题栏与工具栏 */}
       <View ref={toolbarRef} style={styles.workspacesToolbarArea} collapsable={false}>
@@ -463,9 +528,11 @@ export function HostSessionsDrawer({
         </View>
       )}
 
+      {groupStorageError && <Text accessibilityRole="alert" style={{ color: colors.muted, paddingHorizontal: spacing.md }}>{groupStorageError}</Text>}
       {/* 会话树状列表 */}
       <SectionList
-        sections={sections}
+        sections={groupsReady ? sections : []}
+        ListEmptyComponent={groupsReady ? null : <ActivityIndicator color={colors.muted} accessibilityLabel={strings.workspaces.loading} />}
         keyExtractor={item => item.sessionId}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContainer}
@@ -591,15 +658,8 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
     },
-    brandLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    brandLeft: { flex: 1, minWidth: 0, marginRight: spacing.sm },
     brandTitle: { ...type.heading, fontSize: 18, fontWeight: '700', color: colors.ink },
-    badge: {
-      backgroundColor: '#000000',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      borderRadius: radius.sm,
-    },
-    badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
     brandRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     iconBtn: { padding: 6, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
 
@@ -624,6 +684,13 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       height: 36,
       marginHorizontal: spacing.xs,
+      borderRadius: radius.sm,
+    },
+    backendTab: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+      height: 36,
       borderRadius: radius.sm,
     },
     navItemText: { ...type.small, color: colors.ink },
