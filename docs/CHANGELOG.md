@@ -8,8 +8,12 @@ Android build 67.
 - Refresh the Android sign-in setup with a modern branded layout, localized OAuth guidance, and more reliable callback loading and error handling.
 - Add optional Remote tools injection settings and hide Host mentions when Remote tools are disabled.
 - Preserve native Remote settings navigation and compatibility with Hosts that omit optional control-route capabilities.
+- Add Remote Host mentions with a reference popup that opens the selected Host or workspace from the native UI.
+- Keep Remote settings on the native settings launcher across supported Harness versions and route the detailed settings entry through the plugin manager when required.
+- Improve Android Host and plugin error presentation, including localized OAuth selection, callback loading, and clearer Host titles.
+- Support rotating a pinned peer key without requiring a new membership when the peer remains authorized.
 
-Thanks @dreamfarer-space for the Android plugin management and login setup redesign, and @liguobao for the Plugin, Android, and release integration work.
+Thanks @dreamfarer-space for the Android plugin management and login setup redesign, Hui Xu for same-membership pinned-peer key rotation, and @liguobao for the Plugin, Android, and release integration work.
 
 ### 中文
 
@@ -17,8 +21,12 @@ Thanks @dreamfarer-space for the Android plugin management and login setup redes
 - 更新 Android 登录设置页，采用新的品牌布局，补齐本地化 OAuth 引导，并改进回调加载与错误处理。
 - 新增可选的 Remote 工具注入设置，并在关闭 Remote 工具时隐藏主机提及入口。
 - 保留原生 Remote 设置导航，并兼容缺少可选 control-route 能力的 Host。
+- 新增 Remote 主机提及和引用弹窗，可从原生界面直接打开对应主机或工作区。
+- 在支持的 Harness 版本中保持 Remote 设置使用原生设置入口，并在需要时通过插件管理器打开详细设置。
+- 改进 Android 主机与插件错误展示，包括本地化 OAuth 选择、回调加载和更清晰的主机标题。
+- 在设备仍具备成员授权时支持轮换固定 Peer 密钥，无需重新注册成员关系。
 
-感谢 @dreamfarer-space 贡献 Android 插件管理与登录设置页改版，也感谢 @liguobao 完成 Plugin、Android 及发版整合工作。
+感谢 @dreamfarer-space 贡献 Android 插件管理与登录设置页改版，感谢 Hui Xu 贡献同成员固定 Peer 密钥轮换，也感谢 @liguobao 完成 Plugin、Android 及发版整合工作。
 
 ## 0.5.21 — 2026-10-27
 
