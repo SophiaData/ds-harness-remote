@@ -29,6 +29,7 @@ import {
   type PluginRowView,
   type SchemaField,
 } from '../services/plugin-inventory'
+import { sessionToolsError } from './session-tools-error'
 import { radius, spacing, type } from '../ui/theme'
 import { useTheme, type ThemeColors } from '../ui/theme-context'
 import { useThemedStyles } from '../ui/use-themed-styles'
@@ -55,7 +56,10 @@ export function PluginsModal({ visible, onClose }: PluginsModalProps) {
     try {
       setInventory(await loadPluginInventory())
     } catch (cause) {
-      setError(cause instanceof Error && cause.message !== '' ? cause.message : strings.plugins.loadFailed)
+      // Older Hosts reject the plugin-manager endpoints with METHOD_NOT_ALLOWED.
+      // Keep the page usable and show the same localized upgrade guidance as the
+      // other Remote tools instead of exposing the raw gateway error.
+      setError(sessionToolsError(cause))
     } finally {
       setLoading(false)
     }

@@ -315,7 +315,7 @@ export function WorkspacesScreen({ onBack, onOpenDevices, onSession, onDeviceInf
     <View style={styles.flex}>
       <BlurHeaderFrame header={<TopBar
         title={selectedDevice?.name ?? zhCN.workspaces.noDevice}
-        titleLines={2}
+        titleLines={1}
         onTitlePress={selectedDevice === undefined ? undefined : onDeviceInfo}
         onBack={onBack}
       />}>
@@ -348,7 +348,7 @@ export function WorkspacesScreen({ onBack, onOpenDevices, onSession, onDeviceInf
       <PluginsModal visible={pluginsOpen} onClose={() => setPluginsOpen(false)} />
       <BlurHeaderFrame header={<TopBar
         title={selectedDevice?.name ?? zhCN.workspaces.noDevice}
-        titleLines={2}
+        titleLines={1}
         onTitlePress={onDeviceInfo}
         onBack={onBack}
         action={<>{connected && <IconButton dense label={zhCN.plugins.title} icon={Puzzle} tint={colors.primary} onPress={() => setPluginsOpen(true)} />}<IconButton dense label={zhCN.bots.mode} icon={Bot} tint={colors.primary} onPress={() => onBotMode(true)} /><IconButton dense label={zhCN.workspaces.create} icon={CirclePlus} tint={colors.primary} onPress={() => setCreateOpen(true)} /></>}
