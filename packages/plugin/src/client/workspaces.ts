@@ -1166,8 +1166,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                               type: 'button', key: entry.path, disabled: busy, onClick: () => void browseDirectory(entry.path),
                             }, React.createElement('span', { 'aria-hidden': true }, '▱'), React.createElement('span', null, entry.name)))),
                           directory.truncated ? React.createElement('small', null, t('directoryTruncated')) : null))
-                    : React.createElement(React.Fragment, null,
-                      React.createElement('div', { className: 'dshRemoteWorkspaceLists' },
+                    : React.createElement('div', { className: 'dshRemoteWorkspaceLists' },
+                      React.createElement(React.Fragment, null,
                         React.createElement('div', { id: workspaceListId, className: 'dshRemoteDirectoryList' }, workspaces.length === 0
                           ? React.createElement('p', null, t('noRemoteWorkspaces'))
                           : visibleWorkspaces.map(workspace => React.createElement('button', {
