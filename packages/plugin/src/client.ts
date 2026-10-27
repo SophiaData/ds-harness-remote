@@ -92,13 +92,7 @@ window.__ModuleLoader__.load({
     let openHarnessSettings: ((page?: string) => void) | undefined
     function RemoteSettingsLauncher(props: { openSettings?: (page?: string) => void }): unknown {
       openHarnessSettings = props.openSettings
-      return React.createElement('button', {
-        type: 'button',
-        className: 'dshRemoteSettingsLauncher',
-        title: 'Remote 设置',
-        'aria-label': 'Remote 设置',
-        onClick: () => props.openSettings?.('plugins'),
-      }, '⚙')
+      return null
     }
     const inject = [
       'connection', 'slots', 'locale', 'workspaces', 'sessions',
@@ -562,12 +556,6 @@ window.__ModuleLoader__.load({
         locale: localeNamespace,
         inject: () => ({ control, statusFeed }),
       }, RemoteSessionHeaderAction))
-      ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-        name: 'settings.launcher',
-        id: 'ds-harness-remote-settings-launcher',
-        order: 100,
-        locale: localeNamespace,
-      }, RemoteSettingsLauncher))
       ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
         name: 'sidebar.footer.action',
         id: 'ds-harness-remote-workspace',
@@ -577,7 +565,7 @@ window.__ModuleLoader__.load({
           control,
           statusFeed,
           subscribeOpen,
-          openSettings: () => openHarnessSettings?.('plugins'),
+          openSettings: undefined,
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))

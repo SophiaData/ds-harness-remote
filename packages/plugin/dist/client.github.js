@@ -4683,13 +4683,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     factory: (require2) => {
       let module = { exports: {} }, React = require2("react"), RemotePluginOptions = createRemotePluginOptions(React), RemoteWorkspaceAction = createRemoteWorkspaceAction(React), RemoteProgressView = createRemoteProgressView(React), RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React), openHarnessSettings;
       function RemoteSettingsLauncher(props) {
-        return openHarnessSettings = props.openSettings, React.createElement("button", {
-          type: "button",
-          className: "dshRemoteSettingsLauncher",
-          title: "Remote \u8BBE\u7F6E",
-          "aria-label": "Remote \u8BBE\u7F6E",
-          onClick: () => props.openSettings?.("plugins")
-        }, "\u2699");
+        return openHarnessSettings = props.openSettings, null;
       }
       let inject = [
         "connection",
@@ -4995,12 +4989,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           order: 20,
           locale: localeNamespace,
           inject: () => ({ control, statusFeed })
-        }, RemoteSessionHeaderAction)), ctx.slots.inject("settings.launcher", () => ctx.slots.register({
-          name: "settings.launcher",
-          id: "ds-harness-remote-settings-launcher",
-          order: 100,
-          locale: localeNamespace
-        }, RemoteSettingsLauncher)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
+        }, RemoteSessionHeaderAction)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
           name: "sidebar.footer.action",
           id: "ds-harness-remote-workspace",
           order: -20,
@@ -5009,7 +4998,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             control,
             statusFeed,
             subscribeOpen,
-            openSettings: () => openHarnessSettings?.("plugins"),
+            openSettings: void 0,
             preferredQrProvider: ctx.locale.getLocale().active === "zh" ? "zhihu" : "github"
           })
         }, RemoteWorkspaceAction)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
