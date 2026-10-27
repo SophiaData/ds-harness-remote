@@ -1,3 +1,15 @@
+## 0.5.21 — 2026-10-27
+
+Android build 66.
+
+### English
+
+- Fix the Remote login page showing Hosts before local credentials have been checked, and restore the sign-in state correctly after local sign-out.
+
+### 中文
+
+- 修复 Remote 登录页在本地凭据检查完成前提前展示主机列表的问题，并在本地退出登录后正确恢复登录状态。
+
 ## 0.5.20 — 2026-10-27
 
 Android build 65.
