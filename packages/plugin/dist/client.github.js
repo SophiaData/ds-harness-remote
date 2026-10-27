@@ -4998,15 +4998,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
             control,
             statusFeed,
             subscribeOpen,
-            openSettings: () => openHarnessSettings?.("plugins"),
+            openSettings: void 0,
             preferredQrProvider: ctx.locale.getLocale().active === "zh" ? "zhihu" : "github"
           })
-        }, RemoteWorkspaceAction)), ctx.slots.inject("settings.launcher", () => ctx.slots.register({
-          name: "settings.launcher",
-          id: "ds-harness-remote-settings-launcher",
-          order: 100,
-          locale: localeNamespace
-        }, RemoteSettingsLauncher)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
+        }, RemoteWorkspaceAction)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
           name: "plugins.row.config",
           key: "ds-harness-remote#ds-harness-remote",
           locale: localeNamespace,

@@ -565,16 +565,10 @@ window.__ModuleLoader__.load({
           control,
           statusFeed,
           subscribeOpen,
-          openSettings: () => openHarnessSettings?.('plugins'),
+          openSettings: undefined,
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))
-      ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-        name: 'settings.launcher',
-        id: 'ds-harness-remote-settings-launcher',
-        order: 100,
-        locale: localeNamespace,
-      }, RemoteSettingsLauncher))
       // rc.1 Plugins-page configuration surfaces. `plugins.item` is reserved
       // for the official settings companion packages (the Plugins page renders
       // its registrants inside the Official group, so a third-party card there
