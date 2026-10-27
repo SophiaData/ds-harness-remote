@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Fix Remote upload receipts so local-file and preflight failures are reported as rejected; reserve unknown receipts for uploads whose delivery may have become uncertain.
+- 修复 Remote 上传回执：本地文件或预检失败现在返回 rejected，仅在上传结果可能不确定时返回 unknown。
+
 - Allow Remote tool uploads up to 1 GiB over LAN/direct P2P; relayed connections retain the 20 MiB limit.
 - Remote 工具在局域网或直连 P2P 下支持最大 1 GiB 上传，中继连接保持 20 MiB。
 

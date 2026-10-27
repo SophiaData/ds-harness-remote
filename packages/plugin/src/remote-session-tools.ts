@@ -80,18 +80,21 @@ export class RemoteSessionTools {
         if (this.ledger.size >= 1024) fail('OPERATION_LIMIT')
         const generation = this.generation
         const receipt: Receipt = { ...target(args), sessionId: args.sessionId, operationId: args.operationId, status: 'pending' }
+        let uploaderEntered = false
         const pending = Promise.resolve().then(() => this.connect(args.hostId, signal, async (remote, active) => {
           const gateway = new RemoteTypertGateway(remote.client)
           if (!remote.features.remoteGateway) fail('HARNESS_SESSIONS_UNAVAILABLE')
           await this.requireSession(gateway, args, active)
           const name = args.name ?? basename(args.localPath)
           sessionToolInputs.remote_upload_file.parse({ ...args, name })
+          uploaderEntered = true
           return uploadRemoteFile(remote.client, args.sessionId, args.localPath, name, active, () => {
             if (generation !== this.generation) fail('REMOTE_AUTHORITY_CHANGED')
           })
         })).then(result => Object.assign(receipt, result), () => {
-          // A transport failure after publication may hide a successful commit.
-          receipt.status = 'unknown'
+          // Before the uploader is entered, no upload RPC can have been sent.
+          // Once entered, cleanup/transport failures may hide a publication.
+          receipt.status = uploaderEntered ? 'unknown' : 'rejected'
           return receipt
         })
         this.ledger.set(args.operationId, { fingerprint, receipt, pending })

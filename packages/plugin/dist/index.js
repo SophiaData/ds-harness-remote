@@ -74649,9 +74649,10 @@ import { open } from "node:fs/promises";
 import { randomUUID as randomUUID2 } from "node:crypto";
 var CHUNK = 64 * 1024;
 async function uploadRemoteFile(client, sessionId, localPath, name2, signal, assertCurrent) {
-  const file = await open(localPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
   const uploadId = randomUUID2();
   const scope2 = { sessionId, uploadId };
+  let file;
+  let remoteOpened = false;
   let committing = false;
   let totalBytes = 0;
   const check = () => {
@@ -74666,10 +74667,12 @@ async function uploadRemoteFile(client, sessionId, localPath, name2, signal, ass
     return result;
   };
   try {
+    file = await open(localPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     check();
     const before = await file.stat();
     totalBytes = before.size;
     if (!before.isFile() || before.size > workspaceUploadMaxBytes(client.getStats?.().mode)) throw new Error("INVALID_LOCAL_UPLOAD_FILE");
+    remoteOpened = true;
     const opened = external_exports.object({ uploadId: external_exports.literal(uploadId), chunkBytes: external_exports.number().int().min(1).max(CHUNK) }).parse(await call("workspace.upload.open", { ...scope2, name: name2, totalBytes: before.size }));
     let offset = 0;
     while (offset < before.size) {
@@ -74690,10 +74693,10 @@ async function uploadRemoteFile(client, sessionId, localPath, name2, signal, ass
     const result = external_exports.object({ name: external_exports.string().min(1), path: external_exports.string().min(1), bytes: external_exports.literal(before.size) }).parse(await call("workspace.upload.commit", scope2));
     return { status: "accepted", ...result };
   } catch {
-    await client.rpc("workspace.upload.abort", scope2, AbortSignal.timeout(5e3)).catch(() => void 0);
+    if (remoteOpened) await client.rpc("workspace.upload.abort", scope2, AbortSignal.timeout(5e3)).catch(() => void 0);
     return { status: committing ? "unknown" : "rejected" };
   } finally {
-    await file.close();
+    await file?.close();
   }
 }
 
@@ -74830,17 +74833,19 @@ var RemoteSessionTools = class {
         if (this.ledger.size >= 1024) fail4("OPERATION_LIMIT");
         const generation = this.generation;
         const receipt = { ...target2(args), sessionId: args.sessionId, operationId: args.operationId, status: "pending" };
+        let uploaderEntered = false;
         const pending = Promise.resolve().then(() => this.connect(args.hostId, signal, async (remote, active) => {
           const gateway = new RemoteTypertGateway2(remote.client);
           if (!remote.features.remoteGateway) fail4("HARNESS_SESSIONS_UNAVAILABLE");
           await this.requireSession(gateway, args, active);
           const name2 = args.name ?? basename2(args.localPath);
           sessionToolInputs.remote_upload_file.parse({ ...args, name: name2 });
+          uploaderEntered = true;
           return uploadRemoteFile(remote.client, args.sessionId, args.localPath, name2, active, () => {
             if (generation !== this.generation) fail4("REMOTE_AUTHORITY_CHANGED");
           });
         })).then((result) => Object.assign(receipt, result), () => {
-          receipt.status = "unknown";
+          receipt.status = uploaderEntered ? "unknown" : "rejected";
           return receipt;
         });
         this.ledger.set(args.operationId, { fingerprint: fingerprint3, receipt, pending });

@@ -76,9 +76,18 @@ describe('Remote upload tool transfer and receipts', () => {
     const signal = new AbortController().signal
     const [a, b] = await Promise.all([tools.run('remote_upload_file', args, signal), tools.run('remote_upload_file', args, signal)])
     expect(a).toEqual(b)
+    expect(a).toMatchObject({ status: 'rejected' })
     expect(invoke).toHaveBeenCalledOnce()
     expect(rpc).not.toHaveBeenCalled()
     expect(await tools.run('remote_get_operation', { operationId: args.operationId }, signal)).toEqual(a)
     await expect(tools.run('remote_upload_file', { ...args, localPath: '/other' }, signal)).rejects.toThrow('OPERATION_ID_CONFLICT')
+  })
+
+  it('reports a missing local file as rejected without sending an abort RPC', async () => {
+    const rpc = vi.fn()
+    const result = await uploadRemoteFile({ rpc } as unknown as RemoteClientCore,
+      'session', '/missing/local-file', 'file.bin', new AbortController().signal, () => {})
+    expect(result).toEqual({ status: 'rejected' })
+    expect(rpc).not.toHaveBeenCalled()
   })
 })

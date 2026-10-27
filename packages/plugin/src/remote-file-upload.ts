@@ -1,6 +1,6 @@
 import { workspaceUploadMaxBytes } from './workspace-transfer-limits.js'
 import { constants } from 'node:fs'
-import { open } from 'node:fs/promises'
+import { open, type FileHandle } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { RemoteClientCore } from '@dsh-remote/client-core'
 import { z } from 'zod'
@@ -10,9 +10,10 @@ const CHUNK = 64 * 1024
 /** Reuses the dedicated connection-owned uploader, never a filesystem RPC. */
 export async function uploadRemoteFile(client: Pick<RemoteClientCore, 'rpc'> & Partial<Pick<RemoteClientCore, 'getStats'>>, sessionId: string,
   localPath: string, name: string, signal: AbortSignal, assertCurrent: () => void) {
-  const file = await open(localPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0))
   const uploadId = randomUUID()
   const scope = { sessionId, uploadId }
+  let file: FileHandle | undefined
+  let remoteOpened = false
   let committing = false
   let totalBytes = 0
   const check = () => {
@@ -26,10 +27,14 @@ export async function uploadRemoteFile(client: Pick<RemoteClientCore, 'rpc'> & P
     return result
   }
   try {
+    // Keep local-file failures inside the rejected outcome. The caller only
+    // treats errors after entering this function as potentially uncertain.
+    file = await open(localPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0))
     check()
     const before = await file.stat()
     totalBytes = before.size
     if (!before.isFile() || before.size > workspaceUploadMaxBytes(client.getStats?.().mode)) throw new Error('INVALID_LOCAL_UPLOAD_FILE')
+    remoteOpened = true
     const opened = z.object({ uploadId: z.literal(uploadId), chunkBytes: z.number().int().min(1).max(CHUNK) })
       .parse(await call('workspace.upload.open', { ...scope, name, totalBytes: before.size }))
     let offset = 0
@@ -52,7 +57,7 @@ export async function uploadRemoteFile(client: Pick<RemoteClientCore, 'rpc'> & P
     return { status: 'accepted' as const, ...result }
   } catch {
     // Abort can remove only uncommitted temporary data, never a published file.
-    await client.rpc('workspace.upload.abort', scope, AbortSignal.timeout(5_000)).catch(() => undefined)
+    if (remoteOpened) await client.rpc('workspace.upload.abort', scope, AbortSignal.timeout(5_000)).catch(() => undefined)
     return { status: committing ? 'unknown' as const : 'rejected' as const }
-  } finally { await file.close() }
+  } finally { await file?.close() }
 }
