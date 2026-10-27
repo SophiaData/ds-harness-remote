@@ -497,6 +497,8 @@ window.__ModuleLoader__.load({
             order: -20,
             showGroupTitle: true,
             candidates: async (_session: unknown, request: { query: string; signal: AbortSignal }) => {
+              const settings = await control<{ config?: { remoteTools?: { enabled?: boolean } } }>('settings.get').catch(() => undefined)
+              if (settings?.config?.remoteTools?.enabled !== true) return []
               const devices = await control<RemoteDevice[]>('devices').catch(() => [])
               const query = request.query.trim().toLocaleLowerCase()
               return devices
