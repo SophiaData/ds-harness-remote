@@ -267,6 +267,8 @@ See [Network and transport](docs/network.md) for the topology, control and data 
 
 - Session traffic is end-to-end encrypted. The service relays ciphertext without storing session plaintext or device private keys.
 - Server membership and the Host's locally pinned peer identity must both authorize a connection.
+- [Remote Tools injection](docs/remote-tools.md) — optional `remote_*` session tools; disabled by default and enabled from detailed Remote settings.
+
 - Interactive terminals use the Host-local `terminal.enabled` switch (on by default). They run as the Host user, independently of Agent approvals.
 - General tool RPC and remote desktop are not exposed.
 - The workspace picker lists folders only and returns bounded, read-only directory metadata.

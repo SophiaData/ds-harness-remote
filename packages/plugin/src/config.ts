@@ -11,6 +11,7 @@ export interface Config {
   serverUrl?: string
   deviceName?: string
   terminal?: { enabled?: boolean }
+  remoteTools?: { enabled?: boolean }
   hostControl?: { enabled?: boolean }
   loopback?: { ports?: number[] }
   forceRelay?: boolean
@@ -78,6 +79,7 @@ export interface ResolvedConfig {
     jitter: number
   }
   terminal: { enabled: boolean }
+  remoteTools?: { enabled: boolean }
   hostControl?: { enabled: boolean }
   loopback: { ports: number[] }
   codex: ResolvedCodexConfig
@@ -105,6 +107,7 @@ const entryConfigSchema = s.object({
   serverUrl: s.string(),
   deviceName: s.string(),
   terminal: s.object({ enabled: s.boolean() }),
+  remoteTools: s.object({ enabled: s.boolean() }),
   hostControl: s.object({ enabled: s.boolean() }),
   loopback: s.object({ ports: s.array(s.number()) }),
   forceRelay: s.boolean(),
@@ -159,6 +162,7 @@ const configSchema = z.object({
   serverUrl: z.string().url().optional(),
   deviceName: z.string().trim().min(1).max(80).optional(),
   terminal: z.object({ enabled: z.boolean().optional() }).strict().optional(),
+  remoteTools: z.object({ enabled: z.boolean().optional() }).strict().optional(),
   hostControl: z.object({ enabled: z.boolean().optional() }).strict().optional(),
   loopback: z.object({ ports: z.array(z.number().int().min(1024).max(65535)).max(16).optional() }).strict().optional(),
   forceRelay: z.boolean().optional(),
@@ -202,6 +206,7 @@ export function resolveConfig(input: ConfigInput = {}, env: NodeJS.ProcessEnv = 
     deviceName: parsed.deviceName ?? env.DSH_REMOTE_DEVICE_NAME ?? hostname(),
     hostControl: { enabled: parsed.hostControl?.enabled ?? true },
     terminal: { enabled: parsed.terminal?.enabled ?? (env.DSH_REMOTE_TERMINAL_ENABLED === undefined || env.DSH_REMOTE_TERMINAL_ENABLED === 'true') },
+    remoteTools: { enabled: parsed.remoteTools?.enabled ?? false },
     loopback: { ports: [...new Set(parsed.loopback?.ports ?? [])] },
     forceRelay: parsed.forceRelay ?? false,
     rotatePinnedPeerKey: parsed.rotatePinnedPeerKey ?? false,

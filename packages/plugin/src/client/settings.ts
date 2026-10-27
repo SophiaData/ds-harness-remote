@@ -20,8 +20,8 @@ export function createRemotePluginOptions(React: ClientReact) {
     const { t } = props
     const [open, setOpen] = React.useState(props.view === 'page')
     const [serverUrl, setServerUrl] = React.useState('')
-    const [portsBusy, setPortsBusy] = React.useState(false)
-    const [previewPorts, setPreviewPorts] = React.useState('')
+    const [remoteToolsBusy, setRemoteToolsBusy] = React.useState(false)
+    const [remoteToolsEnabled, setRemoteToolsEnabled] = React.useState(false)
     const role = 'host' as const
     const [registrationCode, setRegistrationCode] = React.useState('')
     const [associations, setAssociations] = React.useState<Partial<Record<'host' | 'client', PluginAssociation>>>({})
@@ -59,7 +59,7 @@ export function createRemotePluginOptions(React: ClientReact) {
       setSettingsView(view)
       setServerUrl(view.config.serverUrl ?? 'https://dsh.r2049.cn')
       setTerminalEnabled(view.config.terminal?.enabled ?? true)
-      setPreviewPorts((view.config.loopback?.ports ?? []).join(', '))
+      setRemoteToolsEnabled(view.config.remoteTools?.enabled ?? false)
       setAcpBackends((view.config.acp?.backends ?? []).map(item => ({ id: item.id, enabled: item.enabled !== false })))
       setAcpAvailability(view.acpAvailability ?? {})
       if (updateAssociations) applyAssociations(view)
@@ -172,7 +172,6 @@ export function createRemotePluginOptions(React: ClientReact) {
 
     const setTerminalRemote = async (enabled: boolean): Promise<void> => {
       const previous = terminalEnabled
-      const portsDraft = previewPorts
       setTerminalEnabled(enabled)
       setTerminalBusy(true)
       setError(undefined)
@@ -180,7 +179,6 @@ export function createRemotePluginOptions(React: ClientReact) {
       try {
         const view = await props.control<PluginSettingsView>('settings.development.set', { terminalEnabled: enabled })
         applyView(view)
-        setPreviewPorts(portsDraft)
         setNotice({ key: 'terminalSaved' })
       } catch (reason) {
         setTerminalEnabled(previous)
@@ -190,20 +188,11 @@ export function createRemotePluginOptions(React: ClientReact) {
       }
     }
 
-    const savePreviewPorts = async (): Promise<void> => {
-      setPortsBusy(true)
-      setError(undefined)
-      setNotice(undefined)
-      try {
-        const ports = previewPorts.trim() === '' ? [] : previewPorts.split(/[,，]/).map(value => Number(value.trim()))
-        const view = await props.control<PluginSettingsView>('settings.development.set', { ports })
-        applyView(view)
-        setNotice({ key: 'developmentSaved' })
-      } catch (reason) {
-        setError(messageOf(reason))
-      } finally {
-        setPortsBusy(false)
-      }
+    const setRemoteTools = async (enabled: boolean): Promise<void> => {
+      setRemoteToolsBusy(true); setError(undefined); setNotice(undefined)
+      try { const view = await props.control<PluginSettingsView>('settings.development.set', { remoteToolsEnabled: enabled }); applyView(view); setNotice({ key: 'remoteToolsSaved' }) }
+      catch (reason) { setRemoteToolsEnabled(!enabled); setError(messageOf(reason)) }
+      finally { setRemoteToolsBusy(false) }
     }
 
     const checkAcp = async (backend: string): Promise<void> => {
@@ -276,19 +265,10 @@ export function createRemotePluginOptions(React: ClientReact) {
           disabled: busy || terminalBusy || !writable, 'aria-label': t('terminalRemote'),
           onChange: (event: Event) => void setTerminalRemote((event.target as HTMLInputElement).checked)
         })),
-      React.createElement('div', { className: 'dshRemotePathField' },
-        React.createElement('label', { htmlFor: 'dsh-remote-preview-ports' }, t('previewPorts')),
-        React.createElement('div', { className: 'dshRemotePortsRow' },
-          React.createElement('input', {
-            id: 'dsh-remote-preview-ports', value: previewPorts, maxLength: 128, size: 24, disabled: !writable,
-            placeholder: '3000, 5173', 'aria-label': t('previewPorts'),
-            onChange: (event: Event) => setPreviewPorts((event.target as HTMLInputElement).value)
-          }),
-          React.createElement('button', {
-            type: 'button', disabled: portsBusy || terminalBusy || !writable,
-            onClick: () => void savePreviewPorts()
-          }, t('developmentSave'))),
-        React.createElement('small', null, t('previewPortsHint'))))
+      React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
+        React.createElement('div', null, React.createElement('strong', null, t('remoteTools')), React.createElement('p', null, t('remoteToolsHint'))),
+        React.createElement('input', { type: 'checkbox', role: 'switch', checked: remoteToolsEnabled, disabled: remoteToolsBusy || !writable, 'aria-label': t('remoteTools'), onChange: (event: Event) => { const enabled = (event.target as HTMLInputElement).checked; setRemoteToolsEnabled(enabled); void setRemoteTools(enabled) } })),
+      )
 
     const acpSetting = React.createElement('details', { className: 'dshRemoteAuthorizationSetting dshRemoteAcpSetting' },
       React.createElement('summary', null,

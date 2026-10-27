@@ -342,7 +342,7 @@ async function activate(
       await runtime.close()
     }
   }, 'dsh-remote lifecycle')
-  installRemoteDiscoveryTools(ctx, () => closed ? undefined : clientRuntime)
+  if (config.remoteTools?.enabled) installRemoteDiscoveryTools(ctx, () => closed ? undefined : clientRuntime)
 }
 
 /**

@@ -187,6 +187,7 @@ interface PluginSettings {
   terminal?: { enabled?: boolean }
   hostControl?: { enabled?: boolean }
   loopback?: { ports?: number[] }
+  remoteTools?: { enabled?: boolean }
   forceRelay?: boolean
   logLevel?: 'debug' | 'info' | 'warn' | 'error'
   reconnect?: boolean | {

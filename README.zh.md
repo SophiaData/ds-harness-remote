@@ -367,3 +367,4 @@ CodeX/ACP 保留独立数据面，Desktop 内存投影统一使用 Typert。
 ### Remote Agent 工具
 
 在本地 Remote 面板登录后，原生 Harness Agent 可发现在线主机与工作区、创建 Harness 会话、发送任务、读取历史、等待执行、请求中断、下载工作区文件到插件运行的本机，以及将获准发送的本地文件上传到 Harness 工作区。CodeX/ACP 暂仅支持工作区发现。操作回执与投递语义见 [Remote Agent tools](packages/plugin/README.md#remote-agent-tools)。
+- [Remote Tools 注入说明](docs/remote-tools.md)：可选的 `remote_*` 会话工具，默认关闭，可在详细 Remote 设置中开启。
