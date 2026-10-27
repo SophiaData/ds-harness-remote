@@ -9,12 +9,16 @@ Android build 67.
 - Add optional Remote tools injection settings and hide Host mentions when Remote tools are disabled.
 - Preserve native Remote settings navigation and compatibility with Hosts that omit optional control-route capabilities.
 
+Thanks @dreamfarer-space for the Android plugin management and login setup redesign, and @liguobao for the Plugin, Android, and release integration work.
+
 ### 中文
 
 - 新增 Android 插件管理：支持 Remote 适配、已安装和实验性插件分组，提供官方设置编辑、启用/停用控制及电脑端安装指引。
 - 更新 Android 登录设置页，采用新的品牌布局，补齐本地化 OAuth 引导，并改进回调加载与错误处理。
 - 新增可选的 Remote 工具注入设置，并在关闭 Remote 工具时隐藏主机提及入口。
 - 保留原生 Remote 设置导航，并兼容缺少可选 control-route 能力的 Host。
+
+感谢 @dreamfarer-space 贡献 Android 插件管理与登录设置页改版，也感谢 @liguobao 完成 Plugin、Android 及发版整合工作。
 
 ## 0.5.21 — 2026-10-27
 
