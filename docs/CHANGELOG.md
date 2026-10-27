@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Allow Remote tool uploads up to 1 GiB over LAN/direct P2P; relayed connections retain the 20 MiB limit.
+- Remote 工具在局域网或直连 P2P 下支持最大 1 GiB 上传，中继连接保持 20 MiB。
+
+- Add a Remote tool to upload authorized local files into a Harness workspace without overwriting existing files.
+- 新增 Remote 上传工具，可将获准发送的本地文件上传到 Harness 工作区，不覆盖已有文件。
+
 - Add a Remote tool to download Harness workspace files to the local plugin machine.
 - 新增 Remote 文件下载工具，可将 Harness 工作区文件保存到插件运行的本机。
 

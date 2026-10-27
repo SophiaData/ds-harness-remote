@@ -1,3 +1,5 @@
+import { uploadRemoteFile } from './remote-file-upload.js'
+import { basename, isAbsolute } from 'node:path'
 import { downloadRemoteFile } from './remote-file-download.js'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -12,6 +14,8 @@ const session = workspace.extend({ sessionId: id })
 const operationId = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/)
 const cursor = z.object({ throughSeq: sequence, beforeSeq: sequence }).strict().refine(value => value.beforeSeq <= value.throughSeq)
 export const sessionToolInputs = {
+  remote_upload_file: session.extend({ operationId, localPath: z.string().min(1).max(4096).refine(value => isAbsolute(value) && !value.includes('\0')),
+    name: z.string().min(1).refine(value => Buffer.byteLength(value, 'utf8') <= 220 && value !== '.' && value !== '..' && !/[\\/:\x00-\x1f\x7f]/u.test(value)).optional() }),
   remote_download_file: session.extend({ path: z.string().min(1).max(4096).refine(value => !value.includes("\0") && !value.startsWith("/") && !value.includes("\\") && !value.includes(":") && value.split("/").every(part => part !== ".." && part !== "")) }),
   remote_list_sessions: workspace.extend({ offset: sequence.max(100_000).default(0), limit: z.number().int().min(1).max(100).default(30) }),
   remote_read_session: session.extend({ cursor: cursor.optional(), maxMessages: z.number().int().min(1).max(50).default(20) }),
@@ -65,6 +69,34 @@ export class RemoteSessionTools {
 
   private async execute(operation: SessionToolOperation, input: unknown, signal: AbortSignal): Promise<unknown> {
     switch (operation) {
+      case 'remote_upload_file': {
+        const args = sessionToolInputs[operation].parse(input)
+        const fingerprint = createHash('sha256').update(JSON.stringify([operation, args])).digest('hex')
+        const old = this.ledger.get(args.operationId)
+        if (old) {
+          if (old.fingerprint !== fingerprint) fail('OPERATION_ID_CONFLICT')
+          return old.pending
+        }
+        if (this.ledger.size >= 1024) fail('OPERATION_LIMIT')
+        const generation = this.generation
+        const receipt: Receipt = { ...target(args), sessionId: args.sessionId, operationId: args.operationId, status: 'pending' }
+        const pending = Promise.resolve().then(() => this.connect(args.hostId, signal, async (remote, active) => {
+          const gateway = new RemoteTypertGateway(remote.client)
+          if (!remote.features.remoteGateway) fail('HARNESS_SESSIONS_UNAVAILABLE')
+          await this.requireSession(gateway, args, active)
+          const name = args.name ?? basename(args.localPath)
+          sessionToolInputs.remote_upload_file.parse({ ...args, name })
+          return uploadRemoteFile(remote.client, args.sessionId, args.localPath, name, active, () => {
+            if (generation !== this.generation) fail('REMOTE_AUTHORITY_CHANGED')
+          })
+        })).then(result => Object.assign(receipt, result), () => {
+          // A transport failure after publication may hide a successful commit.
+          receipt.status = 'unknown'
+          return receipt
+        })
+        this.ledger.set(args.operationId, { fingerprint, receipt, pending })
+        return pending
+      }
       case 'remote_download_file': {
         const args = sessionToolInputs[operation].parse(input)
         const generation = this.generation

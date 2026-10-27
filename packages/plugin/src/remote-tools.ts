@@ -91,6 +91,10 @@ export function remoteSessionTools(resolve: () => Pick<ClientModeRuntime, 'runSe
   const session = { ...target, sessionId: { ...string, description: 'Exact native sessionId returned by a Remote session tool.' } }
   const operation = { ...string, description: 'Unique 16–128 character operation key (letters, digits, _ or -). Keep this key for receipt lookup. Never use a new key to retry an unknown outcome.' }
   const metadata: Record<SessionToolOperation, { description: string; parameters: Record<string, unknown> }> = {
+    remote_upload_file: {
+      description: 'Upload an existing local regular file (absolute localPath on this plugin machine) to a Harness session workspace root, only when the user authorizes sending that file to that Host. Maximum 1 GiB on verified LAN/direct P2P paths; otherwise 20 MiB (including TURN/Relay/unknown). Host must also support the larger limit. Optional name is a filename, not a path. Existing remote files are never overwritten; the Host chooses a unique name. Requires a unique operationId; inspect remote_get_operation on uncertain delivery and never automatically retry with a new key. Returns remote path/name/bytes, never contents. Does not send a prompt or alter UI selection.',
+      parameters: object({ ...session, operationId: operation, localPath: string, name: string }, [...Object.keys(session), 'operationId', 'localPath']),
+    },
     remote_download_file: {
       description: 'Download a file from a native Harness session workspace to this installation’s Downloads directory when requested by the user. Provide a workspace-relative path without parent traversal. Maximum 50 MiB; Host limits also apply. Uses official scoped read-only file APIs, verifies file version and cleans partial downloads on failure. Returns localPath and bytes, never file contents. Does not overwrite existing files or change UI selection. The path is on the machine running this plugin, not a remote browser device.',
       parameters: object({ ...session, path: { ...string, description: 'Workspace-relative file path.' } }, [...Object.keys(session), 'path']),
@@ -121,7 +125,7 @@ export function remoteSessionTools(resolve: () => Pick<ClientModeRuntime, 'runSe
       parameters: object({ targets: array(object(session, Object.keys(session))), timeoutMs: { type: 'integer' } }, ['targets']),
     },
     remote_get_operation: {
-      description: 'Read a create/send/interrupt receipt by operationId without executing it again. Receipts exist only in memory for this Remote runtime/account. not_found after restart/logout does NOT mean the remote operation did not execute; inspect its session before any resend. No automatic retries.',
+      description: 'Read a create/send/interrupt/upload receipt by operationId without executing it again. Receipts exist only in memory for this Remote runtime/account. not_found after restart/logout does NOT mean the remote operation did not execute; inspect its session before any resend. No automatic retries.',
       parameters: object({ operationId: operation }, ['operationId']),
     },
   }
@@ -131,7 +135,7 @@ export function remoteSessionTools(resolve: () => Pick<ClientModeRuntime, 'runSe
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: async (args, exec) => {
       sessionToolInputs[name].parse(args)
-      const signal = AbortSignal.any([exec.signal, AbortSignal.timeout(120_000)])
+      const signal = AbortSignal.any([exec.signal, AbortSignal.timeout(name === 'remote_upload_file' ? 60 * 60_000 : 120_000)])
       signal.throwIfAborted()
       const client = resolve()
       if (!client) throw new Error('REMOTE_UNAVAILABLE: Sign in through the local Remote panel.')

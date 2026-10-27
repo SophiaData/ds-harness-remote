@@ -773,3 +773,7 @@ GitHub/npm packed WebRTC 的生产依赖闭包、原生不可用时的回退及�
 本轮 Plugin check、61 文件 / 417 tests、Plugin build、DSH bundle 校验与 git diff --check 通过。未进行本轮真实跨设备 E2E 或全仓构建。
 
 Remote Tools 文件下载：remote_download_file 只读官方 workspaceFiles/stat/readBytes，先校验 Harness workspace/session 归属，拒绝绝对路径与父级越界。固定最大 50 MiB / 分块 256 KiB，校验版本、大小、offset/eof，取消/失败删除临时下载目录。本机 Downloads/dsh-remote-* 私有独立目录保存，不覆盖文件，不把内容放入工具返回。此本机下载写入按本轮用户明确要求实现，不增加 Host 写入权限。
+
+Remote upload tool (2026-10-27)：remote_upload_file 仅支持 Harness，先验证 Host/workspace/session 归属，再读取插件运行机器的绝对 localPath，拒绝最终路径符号链接和非普通文件。沿用 workspace.upload.open/chunk/commit/abort 专用上传协议、20 MiB / 64 KiB 上限与 Host 不覆盖发布规则。使用 operationId 内存回执去重，提交结果不确定返回 unknown，不自动重发。返回路径与元数据，不返回文件内容。不增加通用 Host filesystem RPC。
+
+Remote Tools 大文件上传：实际 LAN / 直连 P2P 最大 1 GiB（1024³ bytes），TURN / Relay / unknown 保持 20 MiB；Host 从认证 channel.mode 的动态 getter 取得路径，open/chunk/commit 复查，回退中继后拒绝大文件并清理临时数据；Client 同步检查 getStats().mode。64 KiB 分块不变，工具总超时 1 小时。旧 Host 仍可能按 20 MiB 拒绝。下载限额未调整。

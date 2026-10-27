@@ -24,6 +24,7 @@ For native Harness workspaces (`backend: "harness"`), the same Agent can use:
 | `remote_send_message` | Queue a text task or follow-up under existing Host permissions. |
 | `remote_wait_sessions` | Observe up to eight sessions, for up to 60 seconds; zero requests snapshots. |
 | `remote_interrupt_session` | Request interruption of the current execution; does not undo edits or delete queued messages. |
+| `remote_upload_file` | Upload a local file to a Harness workspace root (1 GiB on LAN/direct P2P; otherwise 20 MiB), without overwriting existing files. |
 | `remote_download_file` | Download a workspace-relative file to this plugin machine’s Downloads directory (50 MiB maximum). |
 | `remote_get_operation` | Read an operation receipt without executing the operation again. |
 
@@ -115,3 +116,7 @@ This repository includes a minimal, single-account self-hosted Relay Server in [
 This is an independent community project and is not an official DeepSeek product. Licensed under the [MIT License](./LICENSE).
 
 Downloads require a Harness workspace and session. Files are saved privately in a fresh `Downloads/dsh-remote-*` directory without overwriting existing files. The tool returns only the local path and byte count. It verifies version, size and chunk offsets and removes partial files on failure/cancellation. Host file limits still apply. For a browser connected to Harness, this downloads onto the machine running the plugin, not directly onto the browser device.
+
+`remote_upload_file` requires an absolute `localPath` on the plugin machine, the Harness host/workspace/session identifiers, and an `operationId`. Optional `name` sets the remote filename. Upload only files the user authorizes sending to that Host. The existing connection-scoped uploader publishes in the session workspace root, renaming collisions. The tool returns the remote filename, path and byte count; it does not send the file to the Agent as prompt text. For uncertain commit delivery, inspect the receipt and workspace rather than retrying with a new operation key.
+
+Upload size follows the actual encrypted transport: LAN and direct P2P allow up to 1 GiB (1,073,741,824 bytes); TURN, Relay and unknown paths retain 20 MiB. Both the client and updated Host enforce the limit throughout transfer. Falling back to relay stops an oversized upload and removes uncommitted data. Older Hosts may retain 20 MiB. The upload tool deadline is one hour; chunks remain bounded at 64 KiB.

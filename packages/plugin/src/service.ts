@@ -144,7 +144,7 @@ export class HostPluginRuntime {
           () => harnessSessionGeneration(this.harnessVersion) === 'v3',
           threadId => this.codex.resolveThreadWorkspace(context.connectionId, threadId),
           sessionId => this.acp.resolveUploadWorkspace(context.connectionId, sessionId),
-        )),
+        ), undefined, context.transportMode),
       )
     }, this.logger)
     if (config.serverUrl !== undefined) {

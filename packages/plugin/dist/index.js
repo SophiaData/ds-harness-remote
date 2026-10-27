@@ -31072,14 +31072,14 @@ import { isIP as isIP2 } from "node:net";
 import { setTimeout as setTimeout4 } from "timers/promises";
 import { createHash as createHash22 } from "crypto";
 import { randomBytes as randomBytes62 } from "crypto";
-import { createHash as createHash3, randomUUID as randomUUID2 } from "crypto";
+import { createHash as createHash3, randomUUID as randomUUID3 } from "crypto";
 import { isIPv4 as isIPv42 } from "net";
 import { randomBytes as randomBytes72 } from "crypto";
 import { isIPv4 as isIPv43 } from "net";
 import * as timers from "node:timers/promises";
 import { randomUUID as randomUUID22 } from "crypto";
 import * as os from "node:os";
-import { randomUUID as randomUUID3 } from "crypto";
+import { randomUUID as randomUUID32 } from "crypto";
 import { EventEmitter } from "node:events";
 import { randomUUID as randomUUID9 } from "crypto";
 import { setTimeout as setTimeout8 } from "timers/promises";
@@ -31584,15 +31584,15 @@ function createCipher2(cipher) {
   }
   return null;
 }
-function createAEADCipher(id6, name2, block, kx, constants5, hash2 = "sha256") {
+function createAEADCipher(id6, name2, block, kx, constants6, hash2 = "sha256") {
   const cipher = new AEADCipher();
   cipher.id = id6;
   cipher.name = name2;
   cipher.blockAlgorithm = block;
   cipher.kx = kx;
   cipher.hashAlgorithm = hash2;
-  cipher.keyLength = constants5.K_LEN;
-  cipher.nonceLength = constants5.N_MAX;
+  cipher.keyLength = constants6.K_LEN;
+  cipher.nonceLength = constants6.N_MAX;
   cipher.nonceImplicitLength = 4;
   cipher.nonceExplicitLength = 8;
   cipher.ivLength = cipher.nonceImplicitLength;
@@ -40134,9 +40134,9 @@ var init_lib = __esm({
         this.ufrag = ufrag;
       }
       // An ICE candidate.
-      id = randomUUID2().toString();
+      id = randomUUID3().toString();
       refreshId() {
-        this.id = randomUUID2().toString();
+        this.id = randomUUID3().toString();
       }
       static fromSdp(sdp) {
         const bits = sdp.split(" ");
@@ -41643,7 +41643,7 @@ var init_lib = __esm({
           }
         }
       }
-      statsId = randomUUID3().toString();
+      statsId = randomUUID32().toString();
       stateChange = new Event2();
       stateChanged = new Event2();
       onMessage = new Event2();
@@ -74638,8 +74638,70 @@ function normalizeThemeNamespace(namespace) {
   };
 }
 
+// src/workspace-transfer-limits.ts
+function workspaceUploadMaxBytes(mode2) {
+  return mode2 === "LAN" || mode2 === "P2P" ? 1024 * 1024 * 1024 : 20 * 1024 * 1024;
+}
+
+// src/remote-file-upload.ts
+import { constants } from "node:fs";
+import { open } from "node:fs/promises";
+import { randomUUID as randomUUID2 } from "node:crypto";
+var CHUNK = 64 * 1024;
+async function uploadRemoteFile(client, sessionId, localPath, name2, signal, assertCurrent) {
+  const file = await open(localPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+  const uploadId = randomUUID2();
+  const scope2 = { sessionId, uploadId };
+  let committing = false;
+  let totalBytes = 0;
+  const check = () => {
+    signal.throwIfAborted();
+    assertCurrent();
+    if (totalBytes > workspaceUploadMaxBytes(client.getStats?.().mode)) throw new Error("UPLOAD_TRANSPORT_LIMIT");
+  };
+  const call = async (method, params) => {
+    check();
+    const result = await client.rpc(method, params, signal);
+    check();
+    return result;
+  };
+  try {
+    check();
+    const before = await file.stat();
+    totalBytes = before.size;
+    if (!before.isFile() || before.size > workspaceUploadMaxBytes(client.getStats?.().mode)) throw new Error("INVALID_LOCAL_UPLOAD_FILE");
+    const opened = external_exports.object({ uploadId: external_exports.literal(uploadId), chunkBytes: external_exports.number().int().min(1).max(CHUNK) }).parse(await call("workspace.upload.open", { ...scope2, name: name2, totalBytes: before.size }));
+    let offset = 0;
+    while (offset < before.size) {
+      check();
+      const buffer2 = Buffer.alloc(Math.min(opened.chunkBytes, before.size - offset));
+      const read = await file.read(buffer2, 0, buffer2.length, offset);
+      if (!read.bytesRead) throw new Error("LOCAL_UPLOAD_FILE_CHANGED");
+      const next = offset + read.bytesRead;
+      external_exports.object({ uploadId: external_exports.literal(uploadId), receivedBytes: external_exports.literal(next) }).parse(
+        await call("workspace.upload.chunk", { ...scope2, offset, data: buffer2.subarray(0, read.bytesRead).toString("base64") })
+      );
+      offset = next;
+    }
+    const after = await file.stat();
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) throw new Error("LOCAL_UPLOAD_FILE_CHANGED");
+    check();
+    committing = true;
+    const result = external_exports.object({ name: external_exports.string().min(1), path: external_exports.string().min(1), bytes: external_exports.literal(before.size) }).parse(await call("workspace.upload.commit", scope2));
+    return { status: "accepted", ...result };
+  } catch {
+    await client.rpc("workspace.upload.abort", scope2, AbortSignal.timeout(5e3)).catch(() => void 0);
+    return { status: committing ? "unknown" : "rejected" };
+  } finally {
+    await file.close();
+  }
+}
+
+// src/remote-session-tools.ts
+import { basename as basename2, isAbsolute as isAbsolute2 } from "node:path";
+
 // src/remote-file-download.ts
-import { mkdir, mkdtemp, open, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, open as open2, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join as join2 } from "node:path";
 var MAX_BYTES = 50 * 1024 * 1024;
@@ -74665,7 +74727,7 @@ async function downloadRemoteFile(gateway, sessionId, path, signal, assertCurren
   const name2 = (path.split(/[\\/]/).at(-1) ?? "").replace(/[^\p{L}\p{N}._-]/gu, "_").slice(0, 120);
   const localPath = join2(directory, !name2 || name2 === "." || name2 === ".." ? "download" : name2);
   try {
-    const file = await open(localPath, "wx", 384);
+    const file = await open2(localPath, "wx", 384);
     try {
       let offset = 0;
       for (; ; ) {
@@ -74705,6 +74767,11 @@ var session = workspace.extend({ sessionId: id2 });
 var operationId = external_exports.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 var cursor = external_exports.object({ throughSeq: sequence, beforeSeq: sequence }).strict().refine((value) => value.beforeSeq <= value.throughSeq);
 var sessionToolInputs = {
+  remote_upload_file: session.extend({
+    operationId,
+    localPath: external_exports.string().min(1).max(4096).refine((value) => isAbsolute2(value) && !value.includes("\0")),
+    name: external_exports.string().min(1).refine((value) => Buffer.byteLength(value, "utf8") <= 220 && value !== "." && value !== ".." && !/[\\/:\x00-\x1f\x7f]/u.test(value)).optional()
+  }),
   remote_download_file: session.extend({ path: external_exports.string().min(1).max(4096).refine((value) => !value.includes("\0") && !value.startsWith("/") && !value.includes("\\") && !value.includes(":") && value.split("/").every((part) => part !== ".." && part !== "")) }),
   remote_list_sessions: workspace.extend({ offset: sequence.max(1e5).default(0), limit: external_exports.number().int().min(1).max(100).default(30) }),
   remote_read_session: session.extend({ cursor: cursor.optional(), maxMessages: external_exports.number().int().min(1).max(50).default(20) }),
@@ -74752,6 +74819,33 @@ var RemoteSessionTools = class {
   }
   async execute(operation, input3, signal) {
     switch (operation) {
+      case "remote_upload_file": {
+        const args = sessionToolInputs[operation].parse(input3);
+        const fingerprint3 = createHash("sha256").update(JSON.stringify([operation, args])).digest("hex");
+        const old = this.ledger.get(args.operationId);
+        if (old) {
+          if (old.fingerprint !== fingerprint3) fail4("OPERATION_ID_CONFLICT");
+          return old.pending;
+        }
+        if (this.ledger.size >= 1024) fail4("OPERATION_LIMIT");
+        const generation = this.generation;
+        const receipt = { ...target2(args), sessionId: args.sessionId, operationId: args.operationId, status: "pending" };
+        const pending = Promise.resolve().then(() => this.connect(args.hostId, signal, async (remote, active) => {
+          const gateway = new RemoteTypertGateway2(remote.client);
+          if (!remote.features.remoteGateway) fail4("HARNESS_SESSIONS_UNAVAILABLE");
+          await this.requireSession(gateway, args, active);
+          const name2 = args.name ?? basename2(args.localPath);
+          sessionToolInputs.remote_upload_file.parse({ ...args, name: name2 });
+          return uploadRemoteFile(remote.client, args.sessionId, args.localPath, name2, active, () => {
+            if (generation !== this.generation) fail4("REMOTE_AUTHORITY_CHANGED");
+          });
+        })).then((result) => Object.assign(receipt, result), () => {
+          receipt.status = "unknown";
+          return receipt;
+        });
+        this.ledger.set(args.operationId, { fingerprint: fingerprint3, receipt, pending });
+        return pending;
+      }
       case "remote_download_file": {
         const args = sessionToolInputs[operation].parse(input3);
         const generation = this.generation;
@@ -76102,7 +76196,7 @@ var TypertGatewaySwitch = class {
         return { ok: false, error: this.failure(error) };
       }
     }) : (endpoint, payload, signal) => this.localDispatch(endpoint, payload, signal, peer);
-    const open4 = this.localOpen === void 0 ? (async (endpoint, payload, signal) => {
+    const open5 = this.localOpen === void 0 ? (async (endpoint, payload, signal) => {
       if (this.localStream === void 0) throw new Error("The local Harness Gateway does not support Remote streams.");
       return this.localStream({ ...requestFromCarrier(endpoint, payload, signal), ...peer === void 0 ? {} : { peer } });
     }) : (endpoint, payload, signal, uplink) => this.localOpen(endpoint, payload, signal, uplink, peer);
@@ -76111,7 +76205,7 @@ var TypertGatewaySwitch = class {
       peer,
       ...this.localStream === void 0 ? {} : { stream: (request) => this.localStream({ ...request, ...peer === void 0 ? {} : { peer } }) },
       dispatch,
-      open: open4,
+      open: open5,
       failure: (error) => this.failure(error),
       supportsCarrier: this.localDispatch !== void 0 && this.localOpen !== void 0
     };
@@ -76138,12 +76232,12 @@ var TypertGatewaySwitch = class {
       };
     }
     if (this.originalOpen !== void 0) {
-      const open4 = this.originalOpen;
-      const rc1 = usesRc1Arity(open4);
+      const open5 = this.originalOpen;
+      const rc1 = usesRc1Arity(open5);
       this.runtime.openWireStream = (...callArgs) => {
         const endpoint = callArgs[0];
         if (this.remoteTarget === void 0 || isLocalOnlyEndpoint(endpoint)) {
-          return rc1 ? Reflect.apply(open4, this.runtime, callArgs) : open4.call(this.runtime, endpoint, callArgs[1], callArgs[2]);
+          return rc1 ? Reflect.apply(open5, this.runtime, callArgs) : open5.call(this.runtime, endpoint, callArgs[1], callArgs[2]);
         }
         const signal = rc1 ? callArgs[4] : callArgs[2];
         return this.openRemote(endpoint, callArgs[1], signal ?? new AbortController().signal, rc1 ? callArgs[2] : void 0);
@@ -76227,8 +76321,8 @@ function workspaceConnectionResult(endpoint, result) {
     ]
   };
 }
-function usesRc1Arity(open4) {
-  return open4.length >= 5;
+function usesRc1Arity(open5) {
+  return open5.length >= 5;
 }
 function endedUplink() {
   return {
@@ -76244,9 +76338,9 @@ function linkControl(signal) {
   return control;
 }
 function createLocalOpen(gateway, runtime) {
-  const open4 = runtime.openWireStream;
-  if (open4 !== void 0) {
-    return usesRc1Arity(open4) ? (endpoint, payload, signal, uplink, peer) => open4.call(runtime, endpoint, payload, uplink ?? endedUplink(), peer, signal, linkControl(signal)) : (endpoint, payload, signal) => open4.call(runtime, endpoint, payload, signal);
+  const open5 = runtime.openWireStream;
+  if (open5 !== void 0) {
+    return usesRc1Arity(open5) ? (endpoint, payload, signal, uplink, peer) => open5.call(runtime, endpoint, payload, uplink ?? endedUplink(), peer, signal, linkControl(signal)) : (endpoint, payload, signal) => open5.call(runtime, endpoint, payload, signal);
   }
   const wire = gateway.wireStream;
   if (wire === void 0) return void 0;
@@ -78505,10 +78599,10 @@ var ControlStatusStream = class {
 
 // src/codex/domain.ts
 import { randomUUID as randomUUID13 } from "node:crypto";
-import { accessSync, constants, existsSync as existsSync2, readFileSync } from "node:fs";
+import { accessSync, constants as constants2, existsSync as existsSync2, readFileSync } from "node:fs";
 import { readdir, realpath, stat as stat3 } from "node:fs/promises";
 import { homedir as homedir3 } from "node:os";
-import { basename as basename2, isAbsolute as isAbsolute2, join as join6, relative, resolve } from "node:path";
+import { basename as basename3, isAbsolute as isAbsolute3, join as join6, relative, resolve } from "node:path";
 
 // src/codex/app-server.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -80052,7 +80146,7 @@ var CodexRemoteDomain = class {
           ...cursor3 === void 0 ? {} : { cursor: cursor3 }
         }));
         for (const project2 of result.data) {
-          const projectRoots = project2.roots.map((root) => root.path).filter((path) => isAbsolute2(path));
+          const projectRoots = project2.roots.map((root) => root.path).filter((path) => isAbsolute3(path));
           if (projectRoots.length === 0) continue;
           projectIds.add(project2.id);
           roots.push(...projectRoots);
@@ -80081,7 +80175,7 @@ var CodexRemoteDomain = class {
       }
     }
     for (const workspace2 of deriveCodexCwdWorkspaces(threads)) {
-      if (isAbsolute2(workspace2.path)) roots.push(workspace2.path);
+      if (isAbsolute3(workspace2.path)) roots.push(workspace2.path);
     }
     return { projectIds, roots };
   }
@@ -80105,7 +80199,7 @@ var CodexRemoteDomain = class {
     return void 0;
   }
   async requireCodexWorkspacePath(path) {
-    if (!isAbsolute2(path)) {
+    if (!isAbsolute3(path)) {
       throw new RpcError("CODEX_PATH_NOT_ALLOWED", "The CodeX working directory is not available as a Workspace.");
     }
     const paths = await this.listCodexWorkspacePaths();
@@ -80128,7 +80222,7 @@ var CodexRemoteDomain = class {
     throw new RpcError("CODEX_PATH_NOT_ALLOWED", "The CodeX working directory is not available as a Workspace.");
   }
   async requireNewCodexProjectPath(path) {
-    if (!isAbsolute2(path)) {
+    if (!isAbsolute3(path)) {
       throw new RpcError("CODEX_PATH_NOT_ALLOWED", "The CodeX project directory must be an existing absolute directory.");
     }
     try {
@@ -80176,7 +80270,7 @@ var CodexRemoteDomain = class {
     };
   }
   async resolveCodexDirectory(path) {
-    if (!isAbsolute2(path)) {
+    if (!isAbsolute3(path)) {
       throw new RpcError("CODEX_PATH_NOT_ALLOWED", "The CodeX working directory is not available as a Workspace.");
     }
     const authority = await this.readWorkspaceAuthority();
@@ -80247,7 +80341,7 @@ function codexBinaryCandidates(configured, hostPlatform = process.platform, user
       }
       const candidate = join6(codexCli, manifest.entrypoint);
       if (!existsSync2(candidate)) return [];
-      accessSync(candidate, constants.X_OK);
+      accessSync(candidate, constants2.X_OK);
       return [candidate];
     } catch {
       return [];
@@ -80329,7 +80423,7 @@ function sanitizeProject(value) {
   if (!isRecord13(value) || typeof value.id !== "string" || typeof value.name !== "string") return void 0;
   const roots = Array.isArray(value.roots) ? value.roots.flatMap((root) => {
     const path = isRecord13(root) && typeof root.path === "string" && root.path.length > 0 ? root.path : void 0;
-    return path === void 0 || !isAbsolute2(path) ? [] : [{ path }];
+    return path === void 0 || !isAbsolute3(path) ? [] : [{ path }];
   }) : [];
   if (roots.length === 0) return void 0;
   return {
@@ -80373,7 +80467,7 @@ function normalizeCodexPathForCompare(path) {
   return path.replace(/[\\/]+$/u, "") || path;
 }
 function codexDirectoryCrumbs(root, path) {
-  const crumbs2 = [{ name: basename2(root) || root, path: root, hidden: false }];
+  const crumbs2 = [{ name: basename3(root) || root, path: root, hidden: false }];
   const remainder = relative(root, path);
   if (remainder === "") return crumbs2;
   let current = root;
@@ -81298,8 +81392,8 @@ var IsolatedAcpClient = class {
 };
 
 // src/workspace-bridge.ts
-import { realpath as realpath2, lstat, readdir as readdir2, open as open2, stat as stat4, watch } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, join as join8, relative as relative2, resolve as resolve2 } from "node:path";
+import { realpath as realpath2, lstat, readdir as readdir2, open as open3, stat as stat4, watch } from "node:fs/promises";
+import { isAbsolute as isAbsolute5, join as join8, relative as relative2, resolve as resolve2 } from "node:path";
 
 // src/remote-terminal-controller.ts
 var import_headless = __toESM(require_xterm_headless(), 1);
@@ -81308,9 +81402,9 @@ var import_addon_serialize = __toESM(require_addon_serialize(), 1);
 // src/remote-terminal-provider.ts
 import { spawn as spawn4 } from "node:child_process";
 import { access } from "node:fs/promises";
-import { constants as constants2 } from "node:fs";
+import { constants as constants3 } from "node:fs";
 import { userInfo } from "node:os";
-import { delimiter as delimiter2, isAbsolute as isAbsolute3, join as join7 } from "node:path";
+import { delimiter as delimiter2, isAbsolute as isAbsolute4, join as join7 } from "node:path";
 import { PassThrough } from "node:stream";
 function profile(path) {
   const name2 = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
@@ -81320,10 +81414,10 @@ function profile(path) {
 async function localExecutable(file, _env, signal) {
   signal?.throwIfAborted();
   const extensions = process.platform === "win32" && !/\.[^\\/]+$/.test(file) ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";") : [""];
-  const paths = isAbsolute3(file) ? [file] : (process.env.PATH ?? "").split(delimiter2).filter(Boolean).map((dir) => join7(dir, file));
+  const paths = isAbsolute4(file) ? [file] : (process.env.PATH ?? "").split(delimiter2).filter(Boolean).map((dir) => join7(dir, file));
   for (const path of paths) for (const extension of extensions) {
     try {
-      await access(path + extension, process.platform === "win32" ? constants2.F_OK : constants2.X_OK);
+      await access(path + extension, process.platform === "win32" ? constants3.F_OK : constants3.X_OK);
       signal?.throwIfAborted();
       return path + extension;
     } catch (error) {
@@ -81997,7 +82091,7 @@ var WorkspaceBridge = class {
       if (info.size > MAX_READ_BYTES) throw this.scopeError("WORKSPACE_TOO_LARGE", "The requested workspace file is too large.");
       const offset = readOffset(args);
       const limit = readLimit(args);
-      const file = await open2(target3, "r");
+      const file = await open3(target3, "r");
       let bytes;
       try {
         const buffer2 = Buffer.allocUnsafe(info.size + 1);
@@ -82076,15 +82170,15 @@ var WorkspaceBridge = class {
     }
   }
   async safePath(root, path, directory) {
-    const candidate = isAbsolute4(path) ? resolve2(path) : resolve2(root, path);
+    const candidate = isAbsolute5(path) ? resolve2(path) : resolve2(root, path);
     const rel = relative2(root, candidate);
-    if (rel.startsWith("..") || isAbsolute4(rel)) throw this.scopeError("WORKSPACE_PATH_DENIED", "The requested workspace path is outside the CodeX workspace.");
+    if (rel.startsWith("..") || isAbsolute5(rel)) throw this.scopeError("WORKSPACE_PATH_DENIED", "The requested workspace path is outside the CodeX workspace.");
     try {
       const info = await lstat(candidate);
       if (info.isSymbolicLink()) throw new Error();
       const canonical = await realpath2(candidate);
       const canonicalRel = relative2(root, canonical);
-      if (canonicalRel.startsWith("..") || isAbsolute4(canonicalRel)) throw new Error();
+      if (canonicalRel.startsWith("..") || isAbsolute5(canonicalRel)) throw new Error();
       if (directory && !info.isDirectory()) throw new Error();
       return canonical;
     } catch {
@@ -82248,7 +82342,7 @@ var AcpWorkspaceTools = class {
 import { randomUUID as randomUUID15 } from "node:crypto";
 import { readdir as readdir3, realpath as realpath5, stat as stat5 } from "node:fs/promises";
 import { homedir as homedir6 } from "node:os";
-import { basename as basename4, isAbsolute as isAbsolute6, join as join12, relative as relative4, resolve as resolve4 } from "node:path";
+import { basename as basename5, isAbsolute as isAbsolute7, join as join12, relative as relative4, resolve as resolve4 } from "node:path";
 
 // src/acp/adapters/claude-process.ts
 import { Buffer as Buffer5 } from "node:buffer";
@@ -82558,9 +82652,9 @@ function agySelectionArgs(catalog, modelId, effort) {
 }
 
 // src/acp/adapters/antigravity/image-store.ts
-import { promises as fs, realpathSync as realpathSync2, constants as constants3 } from "node:fs";
+import { promises as fs, realpathSync as realpathSync2, constants as constants4 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join9, basename as basename3 } from "node:path";
+import { join as join9, basename as basename4 } from "node:path";
 import { createHash as createHash6, randomUUID as randomUUID14 } from "node:crypto";
 var EXTENSIONS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 var IMAGE_NAME = /^[0-9a-f-]{36}\.(png|jpg|webp|gif)$/;
@@ -82637,14 +82731,14 @@ function agyImageReferences(text) {
   }
 }
 async function readAgyImage(sessionId, path, root = AGY_IMAGE_ROOT) {
-  const name2 = basename3(path);
+  const name2 = basename4(path);
   if (!IMAGE_NAME.test(name2) || path !== join9(root, sessionFolder(sessionId), name2)) return void 0;
   try {
     await privateDirectory(root);
     await privateDirectory(join9(root, sessionFolder(sessionId)));
     const info = await fs.lstat(path);
     if (!info.isFile() || info.isSymbolicLink() || info.size > 8 * 1024 * 1024 || Date.now() - info.mtimeMs > TTL) return void 0;
-    const file = await fs.open(path, constants3.O_RDONLY | (constants3.O_NOFOLLOW ?? 0));
+    const file = await fs.open(path, constants4.O_RDONLY | (constants4.O_NOFOLLOW ?? 0));
     try {
       const current = await file.stat();
       if (current.ino !== info.ino || current.dev !== info.dev || current.size !== info.size) return void 0;
@@ -84064,7 +84158,7 @@ function isSessionMutation(method) {
 
 // src/acp/adapters/antigravity/transcript-loader.ts
 import { promises as fs3 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join11, relative as relative3, resolve as resolve3, sep } from "node:path";
+import { isAbsolute as isAbsolute6, join as join11, relative as relative3, resolve as resolve3, sep } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { homedir as homedir5 } from "node:os";
 import { createRequire as createRequire2 } from "node:module";
@@ -84231,7 +84325,7 @@ async function discoverAntigravityWorkspaces(dbPath = join11(homedir5(), ".gemin
             try {
               const p = fileURLToPath2(u);
               const imageRelative = relative3(AGY_IMAGE_ROOT, p);
-              const imageCache = imageRelative === "" || !isAbsolute5(imageRelative) && imageRelative !== ".." && !imageRelative.startsWith(`..${sep}`);
+              const imageCache = imageRelative === "" || !isAbsolute6(imageRelative) && imageRelative !== ".." && !imageRelative.startsWith(`..${sep}`);
               if (!imageCache) paths.add(p);
             } catch {
             }
@@ -84959,7 +85053,7 @@ var AcpRemoteGateway = class {
       const requestedBackend = typeof call.params.backend === "string" ? call.params.backend : this.defaultBackend();
       if (requestedBackend === "pi" || requestedBackend === "claude" || requestedBackend === "opencode") {
         const sessions = await this.listCatalogSessions(requestedBackend);
-        const discovered = [...new Set(sessions.map((item) => item.cwd))].map((path) => ({ path, title: basename4(path) || "workspace" }));
+        const discovered = [...new Set(sessions.map((item) => item.cwd))].map((path) => ({ path, title: basename5(path) || "workspace" }));
         if (discovered.length > 0 || requestedBackend !== "opencode") return discovered;
         const defaultCandidates = /* @__PURE__ */ new Set();
         const cwd3 = process.cwd();
@@ -84971,7 +85065,7 @@ var AcpRemoteGateway = class {
           } catch {
           }
         }
-        return [...defaultCandidates].map((path) => ({ path, title: basename4(path) || "workspace" }));
+        return [...defaultCandidates].map((path) => ({ path, title: basename5(path) || "workspace" }));
       }
       const candidates = /* @__PURE__ */ new Set();
       const cwd2 = process.cwd();
@@ -85004,7 +85098,7 @@ var AcpRemoteGateway = class {
         }
         return {
           path: p,
-          title: basename4(p) || "workspace",
+          title: basename5(p) || "workspace",
           ...sessionCount > 0 ? { sessionCount } : {}
         };
       }));
@@ -85775,7 +85869,7 @@ var AcpRemoteGateway = class {
     return canonical;
   }
   async requireExistingDirectory(path) {
-    if (!isAbsolute6(path)) {
+    if (!isAbsolute7(path)) {
       throw new RpcError("CURSOR_PATH_NOT_ALLOWED", "The Cursor working directory must be an absolute path.");
     }
     try {
@@ -85793,7 +85887,7 @@ var AcpRemoteGateway = class {
   async listDirectory(path) {
     const home = homedir6();
     const target3 = path.trim() === "~" || path.trim() === "" ? home : path.startsWith("~/") ? join12(home, path.slice(2)) : path;
-    const canonical = await this.requireExistingDirectory(isAbsolute6(target3) ? target3 : resolve4(target3));
+    const canonical = await this.requireExistingDirectory(isAbsolute7(target3) ? target3 : resolve4(target3));
     const names = await readdir3(canonical);
     const entries = [];
     let truncated = false;
@@ -85895,7 +85989,7 @@ function buildCrumbs(path, home) {
   let current = path;
   while (true) {
     crumbs2.unshift({
-      name: current === home ? "~" : basename4(current) || current,
+      name: current === home ? "~" : basename5(current) || current,
       path: current,
       hidden: false
     });
@@ -86396,18 +86490,19 @@ function redact(value, key = "") {
 
 // src/workspace-upload.ts
 import { randomUUID as randomUUID16 } from "node:crypto";
-import { constants as constants4 } from "node:fs";
-import { link, lstat as lstat2, open as open3, realpath as realpath6, stat as stat6, unlink } from "node:fs/promises";
-import { extname, isAbsolute as isAbsolute7, join as join13 } from "node:path";
+import { constants as constants5 } from "node:fs";
+import { link, lstat as lstat2, open as open4, realpath as realpath6, stat as stat6, unlink } from "node:fs/promises";
+import { extname, isAbsolute as isAbsolute8, join as join13 } from "node:path";
 var WORKSPACE_UPLOAD_BYTES = 20 * 1024 * 1024;
 var WORKSPACE_UPLOAD_CHUNK = 64 * 1024;
 var scope = external_exports.object({ sessionId: external_exports.string().min(1).max(512), uploadId: external_exports.string().uuid() }).strict();
-var openParams = scope.extend({ name: external_exports.string().min(1), totalBytes: external_exports.number().int().min(0).max(WORKSPACE_UPLOAD_BYTES) }).strict();
+var openParams = scope.extend({ name: external_exports.string().min(1), totalBytes: external_exports.number().int().min(0).max(workspaceUploadMaxBytes("LAN")) }).strict();
 var chunkParams = scope.extend({ offset: external_exports.number().int().min(0), data: external_exports.string().min(1).max(Math.ceil(WORKSPACE_UPLOAD_CHUNK / 3) * 4) }).strict();
 var WorkspaceUploadHost = class {
-  constructor(resolveRoot, ttlMs = 12e4) {
+  constructor(resolveRoot, ttlMs = 12e4, transportMode = () => void 0) {
     this.resolveRoot = resolveRoot;
     this.ttlMs = ttlMs;
+    this.transportMode = transportMode;
     this.timer = setInterval(() => {
       void this.serialize(() => this.expire()).catch(() => void 0);
     }, Math.min(ttlMs, 3e4));
@@ -86466,17 +86561,18 @@ var WorkspaceUploadHost = class {
   }
   async begin(input3) {
     const p = openParams.parse(input3);
+    if (p.totalBytes > workspaceUploadMaxBytes(this.transportMode())) throw failure3("UPLOAD_LIMIT");
     if (!validName(p.name)) throw failure3("UPLOAD_INVALID_NAME");
     if (this.uploads.has(p.uploadId) || this.completed.has(p.uploadId)) throw failure3("UPLOAD_ID_IN_USE");
     if (this.uploads.size >= 2) throw failure3("UPLOAD_LIMIT");
     const sourceRoot = await this.sessionRoot(p.sessionId);
     this.assertLive();
-    if (!sourceRoot || !isAbsolute7(sourceRoot)) throw failure3("UPLOAD_WORKSPACE_UNAVAILABLE");
+    if (!sourceRoot || !isAbsolute8(sourceRoot)) throw failure3("UPLOAD_WORKSPACE_UNAVAILABLE");
     const root = await realpath6(sourceRoot);
     const directory = await stat6(root);
     if (!directory.isDirectory()) throw failure3("UPLOAD_WORKSPACE_UNAVAILABLE");
     const temp = join13(root, `.dsh-upload-${randomUUID16()}.part`);
-    const handle = await open3(temp, constants4.O_CREAT | constants4.O_EXCL | constants4.O_RDWR | (constants4.O_NOFOLLOW ?? 0), 384);
+    const handle = await open4(temp, constants5.O_CREAT | constants5.O_EXCL | constants5.O_RDWR | (constants5.O_NOFOLLOW ?? 0), 384);
     const upload = { ...p, received: 0, touched: Date.now(), root, sourceRoot, dev: directory.dev, ino: directory.ino, temp, handle };
     this.uploads.set(p.uploadId, upload);
     await this.validateRoot(upload);
@@ -86558,6 +86654,7 @@ var WorkspaceUploadHost = class {
     }
   }
   async validateRoot(upload) {
+    if (upload.totalBytes > workspaceUploadMaxBytes(this.transportMode())) throw failure3("UPLOAD_LIMIT");
     const current = await this.sessionRoot(upload.sessionId);
     this.assertLive();
     if (current !== upload.sourceRoot || await realpath6(current) !== upload.root || await realpath6(upload.root) !== upload.root) throw failure3("UPLOAD_WORKSPACE_CHANGED");
@@ -86648,7 +86745,7 @@ var ConnectionController = class {
     }
     await Promise.all(replaced.map((connection2) => this.disconnect(connection2, "CONNECTION_REPLACED")));
     const router = this.createRouter(
-      { connectionId, peerDeviceId: channel.peerDeviceId },
+      { connectionId, peerDeviceId: channel.peerDeviceId, transportMode: () => channel.mode },
       (message) => this.sendTo(connectionId, channel, message)
     );
     const connection = {
@@ -88097,10 +88194,10 @@ import { randomUUID as randomUUID17 } from "node:crypto";
 // src/remote-directory-browser.ts
 import { mkdir as mkdir4, readdir as readdir4, stat as stat7 } from "node:fs/promises";
 import { homedir as homedir7, platform as platform2 } from "node:os";
-import { basename as basename5, dirname as dirname5, isAbsolute as isAbsolute8, parse, resolve as resolve5 } from "node:path";
+import { basename as basename6, dirname as dirname5, isAbsolute as isAbsolute9, parse, resolve as resolve5 } from "node:path";
 var MAX_ENTRIES = 500;
 async function ensureHostWorkspaceDirectory(path) {
-  if (typeof path !== "string" || path.trim() === "" || path.includes("\0") || !isAbsolute8(path) || resolve5(path) === parse(path).root) {
+  if (typeof path !== "string" || path.trim() === "" || path.includes("\0") || !isAbsolute9(path) || resolve5(path) === parse(path).root) {
     throw new RpcError("INVALID_MESSAGE", "Workspace path must be an absolute, non-root directory path.");
   }
   await mkdir4(path, { recursive: true });
@@ -88109,7 +88206,7 @@ async function listRemoteDirectory(path, signal) {
   signal?.throwIfAborted();
   const home = resolve5(homedir7());
   const target3 = path === void 0 || path.trim() === "" ? home : resolve5(path);
-  if (!isAbsolute8(target3)) throw new Error("The remote directory path must be absolute.");
+  if (!isAbsolute9(target3)) throw new Error("The remote directory path must be absolute.");
   const rows = await readdir4(target3, { withFileTypes: true });
   const directories = [];
   for (const row of rows) {
@@ -88135,7 +88232,7 @@ function crumbs(path) {
   const segments = [];
   let current = path;
   while (current !== root) {
-    segments.unshift(basename5(current));
+    segments.unshift(basename6(current));
     current = dirname5(current);
   }
   for (const segment of segments) {
@@ -88833,7 +88930,7 @@ var HostPluginRuntime = class {
           () => harnessSessionGeneration(this.harnessVersion) === "v3",
           (threadId) => this.codex.resolveThreadWorkspace(context.connectionId, threadId),
           (sessionId) => this.acp.resolveUploadWorkspace(context.connectionId, sessionId)
-        ))
+        ), void 0, context.transportMode)
       );
     }, this.logger);
     if (config.serverUrl !== void 0) {
@@ -89367,6 +89464,10 @@ function remoteSessionTools(resolve6) {
   const session2 = { ...target3, sessionId: { ...string5, description: "Exact native sessionId returned by a Remote session tool." } };
   const operation = { ...string5, description: "Unique 16\u2013128 character operation key (letters, digits, _ or -). Keep this key for receipt lookup. Never use a new key to retry an unknown outcome." };
   const metadata = {
+    remote_upload_file: {
+      description: "Upload an existing local regular file (absolute localPath on this plugin machine) to a Harness session workspace root, only when the user authorizes sending that file to that Host. Maximum 1 GiB on verified LAN/direct P2P paths; otherwise 20 MiB (including TURN/Relay/unknown). Host must also support the larger limit. Optional name is a filename, not a path. Existing remote files are never overwritten; the Host chooses a unique name. Requires a unique operationId; inspect remote_get_operation on uncertain delivery and never automatically retry with a new key. Returns remote path/name/bytes, never contents. Does not send a prompt or alter UI selection.",
+      parameters: object3({ ...session2, operationId: operation, localPath: string5, name: string5 }, [...Object.keys(session2), "operationId", "localPath"])
+    },
     remote_download_file: {
       description: "Download a file from a native Harness session workspace to this installation\u2019s Downloads directory when requested by the user. Provide a workspace-relative path without parent traversal. Maximum 50 MiB; Host limits also apply. Uses official scoped read-only file APIs, verifies file version and cleans partial downloads on failure. Returns localPath and bytes, never file contents. Does not overwrite existing files or change UI selection. The path is on the machine running this plugin, not a remote browser device.",
       parameters: object3({ ...session2, path: { ...string5, description: "Workspace-relative file path." } }, [...Object.keys(session2), "path"])
@@ -89400,7 +89501,7 @@ function remoteSessionTools(resolve6) {
       parameters: object3({ targets: array4(object3(session2, Object.keys(session2))), timeoutMs: { type: "integer" } }, ["targets"])
     },
     remote_get_operation: {
-      description: "Read a create/send/interrupt receipt by operationId without executing it again. Receipts exist only in memory for this Remote runtime/account. not_found after restart/logout does NOT mean the remote operation did not execute; inspect its session before any resend. No automatic retries.",
+      description: "Read a create/send/interrupt/upload receipt by operationId without executing it again. Receipts exist only in memory for this Remote runtime/account. not_found after restart/logout does NOT mean the remote operation did not execute; inspect its session before any resend. No automatic retries.",
       parameters: object3({ operationId: operation }, ["operationId"])
     }
   };
@@ -89413,7 +89514,7 @@ function remoteSessionTools(resolve6) {
     },
     execute: async (args, exec2) => {
       sessionToolInputs[name2].parse(args);
-      const signal = AbortSignal.any([exec2.signal, AbortSignal.timeout(12e4)]);
+      const signal = AbortSignal.any([exec2.signal, AbortSignal.timeout(name2 === "remote_upload_file" ? 60 * 6e4 : 12e4)]);
       signal.throwIfAborted();
       const client = resolve6();
       if (!client) throw new Error("REMOTE_UNAVAILABLE: Sign in through the local Remote panel.");
