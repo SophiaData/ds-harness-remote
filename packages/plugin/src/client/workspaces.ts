@@ -31,6 +31,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     subscribeOpen: (listener: () => void) => () => void
     preferredQrProvider: OAuthProvider
     t: Translate
+    openSettings?: () => void
   }): unknown {
     const { t } = props
     const [open, setOpen] = React.useState(false)
@@ -1121,7 +1122,12 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                 ? (connectingHost === undefined ? React.createElement(React.Fragment, null,
                   React.createElement('p', { className: 'dshRemoteHint' }, t('selectHostHint')),
                   React.createElement('footer', { className: 'dshRemoteAccountFooter' },
-                    React.createElement('span', null, status?.host?.account ?? t('account')),
+                    React.createElement('span', null, status?.target?.name ?? status?.deviceName ?? status?.host?.account ?? t('account')),
+                    props.openSettings === undefined ? null : React.createElement('button', {
+                      type: 'button', className: 'dshRemoteAccountSettings',
+                      onClick: props.openSettings,
+                      'aria-label': t('settings'), title: t('settings'),
+                    }, t('settings')),
                     React.createElement('button', {
                       type: 'button', className: 'dshRemoteAccountExit', disabled: busy,
                       onClick: () => void logoutRemote(),

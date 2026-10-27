@@ -190,7 +190,13 @@ export function createRemotePluginOptions(React: ClientReact) {
 
     const setRemoteTools = async (enabled: boolean): Promise<void> => {
       setRemoteToolsBusy(true); setError(undefined); setNotice(undefined)
-      try { const view = await props.control<PluginSettingsView>('settings.development.set', { remoteToolsEnabled: enabled }); applyView(view); setNotice({ key: 'remoteToolsSaved' }) }
+      try {
+        // Include the terminal value for compatibility with older Hosts whose
+        // development settings endpoint requires one of the legacy fields.
+        const view = await props.control<PluginSettingsView>('settings.development.set', { remoteToolsEnabled: enabled, terminalEnabled })
+        applyView(view)
+        setNotice({ key: 'remoteToolsSaved' })
+      }
       catch (reason) { setRemoteToolsEnabled(!enabled); setError(messageOf(reason)) }
       finally { setRemoteToolsBusy(false) }
     }
