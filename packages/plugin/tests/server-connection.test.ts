@@ -817,6 +817,7 @@ function config(): ResolvedConfig {
     serverUrl: 'https://dsh.r2049.cn',
     deviceName: 'Host',
     forceRelay: true,
+    rotatePinnedPeerKey: false,
     logLevel: 'error',
     reconnect: { enabled: false, initialDelayMs: 100, maxDelayMs: 1_000, jitter: 0 },
     codex: { enabled: false, binary: 'codex' },
@@ -833,3 +834,109 @@ function fromBase64UrlForTest(value: string): Uint8Array {
 }
 
 async function flush(): Promise<void> { await new Promise(resolve => setTimeout(resolve, 0)) }
+
+describe('pinned peer identity rotation', () => {
+  const OLD_KEY = generateKeyPair(new Uint8Array(32).fill(61)).publicKey
+  const NEW_KEY = generateKeyPair(new Uint8Array(32).fill(62)).publicKey
+  const stalePin: TrustedPeer = {
+    deviceId: 'client-1',
+    name: 'Phone',
+    platform: 'android',
+    publicKey: OLD_KEY,
+    fingerprint: 'STALE',
+    trustedAt: 1,
+    membershipId: 'membership-1',
+  }
+
+  async function rotationHarness(opts: { rotate: boolean; descriptorMembershipId?: string }) {
+    const peer = { ...stalePin, publicKey: NEW_KEY }
+    const socket = new FakeWebSocket()
+    const api = {
+      baseUrl: 'https://dsh.r2049.cn',
+      authenticate: vi.fn(async () => ({ accessToken: 'access-token-value' })),
+      refreshCredentials: vi.fn(),
+      deviceFor: vi.fn(async () => ({
+        deviceId: peer.deviceId,
+        name: peer.name,
+        role: 'client',
+        platform: peer.platform,
+        identityKey: peer.publicKey,
+        membershipId: opts.descriptorMembershipId ?? peer.membershipId!,
+      })),
+    } as unknown as HostServerApi
+    const trustPeer = vi.fn(async (input: Omit<TrustedPeer, 'fingerprint' | 'trustedAt'>) => ({
+      ...input,
+      fingerprint: 'ROTATED',
+      trustedAt: 2,
+    }))
+    const connections = {
+      accept: vi.fn(async () => undefined),
+      closeConnection: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    } as unknown as ConnectionController
+    const identity = { schemaVersion: 1, deviceId: 'host-1', name: 'Host', fingerprint: 'HOST',
+      ...generateKeyPair(new Uint8Array(32).fill(51)) } as unknown as HostIdentity
+    const resolvedConfig = { ...config(), rotatePinnedPeerKey: opts.rotate } as ResolvedConfig
+    const server = new HostServerConnection(
+      resolvedConfig,
+      identity,
+      { trustedPeer: vi.fn(() => stalePin), trustPeer } as unknown as IdentityStore,
+      api,
+      connections,
+      logger(),
+      () => socket,
+      undefined,
+      () => ['harness.api.v1'],
+      '0.1.0-rc.8',
+    )
+    server.start()
+    await flush()
+    socket.open()
+    await flush()
+    socket.receive(createControlFrame('hello.ack', {
+      protocol: 1,
+      serverVersion: '0.1.0',
+      connectionSessionId: 'control-1',
+      heartbeatIntervalMs: 25_000,
+      maxControlFrameBytes: 65_536,
+      maxRelayFrameBytes: 1_048_576,
+      capabilities: ['transport.relay'],
+    }))
+    await flush()
+    socket.receive(createControlFrame('connect.incoming', {
+      connectionId: 'connection-rotation',
+      clientDeviceId: 'client-1',
+      clientIdentityKey: NEW_KEY,
+      authorization: 'account',
+      preferredTransports: ['relay'],
+    }))
+    await flush()
+    const types = socket.sent.map(frame => (JSON.parse(frame) as { type?: string }).type)
+    return { trustPeer, types }
+  }
+
+  it('rejects a stale pinned peer key by default', async () => {
+    const { trustPeer, types } = await rotationHarness({ rotate: false })
+    expect(types).toContain('connect.rejected')
+    expect(types).not.toContain('connect.accepted')
+    expect(trustPeer).not.toHaveBeenCalled()
+  })
+
+  it('rotates the stale pin for the same membership when opted in', async () => {
+    const { trustPeer, types } = await rotationHarness({ rotate: true })
+    expect(types).not.toContain('connect.rejected')
+    expect(types).toContain('connect.accepted')
+    expect(trustPeer).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'client-1',
+      publicKey: NEW_KEY,
+      membershipId: 'membership-1',
+    }))
+  })
+
+  it('still rejects cross-membership rotation attempts', async () => {
+    const { trustPeer, types } = await rotationHarness({ rotate: true, descriptorMembershipId: 'membership-OTHER' })
+    expect(types).toContain('connect.rejected')
+    expect(types).not.toContain('connect.accepted')
+    expect(trustPeer).not.toHaveBeenCalled()
+  })
+})
