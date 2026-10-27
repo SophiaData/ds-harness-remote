@@ -8,6 +8,31 @@ Continue DeepSeek Harness sessions and experimental Codex, Cursor, and Antigravi
 
 > Install the npm package through Desktop Plugin management or `dsh plugin`. Both manage the selected Harness profile and its bundle configuration.
 
+## Remote Agent tools
+
+After signing in through the local Desktop/web-profile Remote panel, ask a native Harness Agent to list online Remote machines and the workspaces on a selected machine. The plugin registers `remote_list_hosts` (no arguments) and `remote_list_workspaces` (`hostId` from the first tool) when the official `tools` service is available.
+
+Discovery reuses Remote account authorization, pinned Host identities and encrypted transport. Each workspace query owns a temporary connection and leaves the UI selection unchanged. Results identify the backend (`harness`, `codex`, or an available ACP backend); failed backend catalogs appear in `unavailable`. Host names, workspace paths and explicitly requested session history become part of the calling Agent's tool context and normal Harness tool history; credentials are not returned.
+
+For native Harness workspaces (`backend: "harness"`), the same Agent can use:
+
+| Tool | Purpose |
+| --- | --- |
+| `remote_list_sessions` | List root sessions in an existing workspace; live catalog pagination. |
+| `remote_read_session` | Read bounded native history, with an older-page cursor and explicit truncation. |
+| `remote_create_session` | Create an empty session in the selected workspace. |
+| `remote_send_message` | Queue a text task or follow-up under existing Host permissions. |
+| `remote_wait_sessions` | Observe up to eight sessions, for up to 60 seconds; zero requests snapshots. |
+| `remote_interrupt_session` | Request interruption of the current execution; does not undo edits or delete queued messages. |
+| `remote_download_file` | Download a workspace-relative file to this plugin machine’s Downloads directory (50 MiB maximum). |
+| `remote_get_operation` | Read an operation receipt without executing the operation again. |
+
+Session tools require explicit `hostId`, `backend` and `workspaceId`; existing-session operations also require `sessionId`. Create/send/interrupt require a unique `operationId` (16–128 letters, digits, underscores or hyphens). The same key and parameters return the same in-memory receipt; changing parameters under that key is rejected. An `accepted` send receipt means queued, not completed. After an `unknown` result, inspect the receipt and remote session instead of retrying with a new key. Receipts are lost on Remote reset, leaving Remote, logout or restart; `not_found` is not proof that an earlier operation did not execute.
+
+For example, ask: “On the Linux Host, create a Harness session in my project, run its tests, and report the result here.” The Agent discovers the target, creates and messages a session, then waits and reads its history. An `idle` status does not prove the task objective succeeded. Pending approval/question detection is limited to retained history; use the native UI to handle those requests. Waiting never approves or interrupts work automatically.
+
+CodeX/ACP currently support workspace discovery only through these tools. This entry does not register an external MCP server. Terminal-only dsh-TUI profiles currently lack the local Remote Client runtime needed by these tools; they can still be discovered as target Hosts.
+
 ## Install
 
 ### DSH Desktop
@@ -88,3 +113,5 @@ This repository includes a minimal, single-account self-hosted Relay Server in [
 - [Changelog](https://github.com/liguobao/ds-harness-remote/blob/main/docs/CHANGELOG.md)
 
 This is an independent community project and is not an official DeepSeek product. Licensed under the [MIT License](./LICENSE).
+
+Downloads require a Harness workspace and session. Files are saved privately in a fresh `Downloads/dsh-remote-*` directory without overwriting existing files. The tool returns only the local path and byte count. It verifies version, size and chunk offsets and removes partial files on failure/cancellation. Host file limits still apply. For a browser connected to Harness, this downloads onto the machine running the plugin, not directly onto the browser device.

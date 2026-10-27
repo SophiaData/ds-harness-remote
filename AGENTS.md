@@ -765,3 +765,11 @@ GitHub/npm packed WebRTC 的生产依赖闭包、原生不可用时的回退及�
 校验脚本的路径边界误判，本轮使用规范化的 `TMPDIR=/private/tmp` 运行原脚本通过。
 产物与日志保留在忽略的 `artifacts/rebuild-0.5.20/`；未新增 APK、原生真机或跨设备
 验收，未发布 npm/Tag/Release。Metro noble/hashes exports fallback 警告仍存在。
+
+## Remote Agent tools (2026-10-27)
+
+从独立功能分支选择性恢复 Remote Tools 至 main；不引入 @ 主机补全、mention control endpoints、派发或自动导航。通过官方 tools 服务注册 Host/Workspace 发现及 Harness 会话 list/read/create/send/wait/interrupt/operation 工具，复用账户授权、identity 固定及加密 carrier；CodeX/ACP 仅发现工作区。UI 已连接同一 Host 时复用连接，否则使用查询生命周期内的临时连接，不改变 UI 选择。操作回执仅内存保存，未知投递不得自动重发。保留主线 ClientReconnect 状态机。
+
+本轮 Plugin check、61 文件 / 417 tests、Plugin build、DSH bundle 校验与 git diff --check 通过。未进行本轮真实跨设备 E2E 或全仓构建。
+
+Remote Tools 文件下载：remote_download_file 只读官方 workspaceFiles/stat/readBytes，先校验 Harness workspace/session 归属，拒绝绝对路径与父级越界。固定最大 50 MiB / 分块 256 KiB，校验版本、大小、offset/eof，取消/失败删除临时下载目录。本机 Downloads/dsh-remote-* 私有独立目录保存，不覆盖文件，不把内容放入工具返回。此本机下载写入按本轮用户明确要求实现，不增加 Host 写入权限。

@@ -343,3 +343,7 @@ DeepSeek and related names and marks belong to their respective owners.
 ## License
 
 [MIT](packages/plugin/LICENSE)
+
+### Remote Agent tools
+
+After signing in through the local Remote panel, native Harness Agents can discover online Hosts and workspaces, create and message Harness sessions, read history, wait for execution, request interruption, and download workspace files to the local plugin machine. CodeX/ACP support workspace discovery only. See [Remote Agent tools](packages/plugin/README.md#remote-agent-tools) for operation receipts and delivery semantics.

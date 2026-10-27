@@ -1,3 +1,11 @@
+## Unreleased
+
+- Add a Remote tool to download Harness workspace files to the local plugin machine.
+- 新增 Remote 文件下载工具，可将 Harness 工作区文件保存到插件运行的本机。
+
+- Add native Remote Agent tools to discover Hosts and workspaces, create and message Harness sessions, read history, wait for execution, and request interruption.
+- 新增 Remote Agent 工具，支持发现主机与工作区、创建 Harness 会话、发送任务、读取历史、等待执行及请求中断。
+
 ## Unreleased — 0.5.20
 
 Android build 65.
