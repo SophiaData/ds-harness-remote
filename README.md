@@ -27,6 +27,14 @@
   <a href="https://dshfind.com/zh/plugins/liguobao/ds-harness-remote?ref=badge"><img src="https://dshfind.com/api/badge/liguobao/ds-harness-remote?metric=downloads&amp;lang=zh" alt="dshfind downloads" width="137" height="20" align="absmiddle"></a>
 </p>
 
+内部二开版本，基于上游 liguobao/ds-harness-remote 0.5.22。
+
+默认 Remote Server 地址已改为占位符 `https://remote.example.com`，不再连接上游托管服务。装完后在 Remote 设置里填自己的服务器地址，或者设环境变量 `DSH_REMOTE_SERVER`。
+
+自建服务端在 `apps/server`，部署见 [apps/server/README.zh.md](apps/server/README.zh.md)。
+
+同步上游：`git fetch upstream && git rebase upstream/main`
+
 ## Connect once. Ready whenever you are.
 
 Continue using your DeepSeek Harness instance from a phone, computer, or browser.
