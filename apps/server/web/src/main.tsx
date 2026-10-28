@@ -15,6 +15,11 @@ export function navigate(path: string) {
   if (window.location.pathname !== path) window.history.pushState({}, '', path)
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
+// 登录态驱动的跳转替换当前历史记录，返回键不会在登录页与设备页之间反复弹回。
+function redirect(path: string) {
+  if (window.location.pathname !== path) window.history.replaceState({}, '', path)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
 
 function App() {
   const { colorTheme } = useColorTheme()
@@ -22,7 +27,7 @@ function App() {
   const [account, setAccount] = useState<Account | null>()
   const [error, setError] = useState<string>()
   const [path, setPath] = useState(() => window.location.pathname)
-  const signedOut = useCallback(() => { setAccount(null); navigate('/') }, [])
+  const signedOut = useCallback(() => { setAccount(null); redirect('/') }, [])
   useEffect(() => {
     const onPopState = () => setPath(window.location.pathname)
     window.addEventListener('popstate', onPopState)
@@ -36,16 +41,19 @@ function App() {
   }, [])
   // These Ant Design tokens are retained from the upstream App.tsx ConfigProvider.
   useEffect(() => {
-    if (account === null && path === '/app/remote') navigate('/app/login')
+    if (account === null && path === '/app/remote') redirect('/app/login')
+    else if (account && path === '/app/login') redirect('/app/remote')
   }, [account, path])
-  const login = useCallback((next: Account) => { setAccount(next); navigate('/app/remote') }, [])
+  const login = useCallback((next: Account) => { setAccount(next); redirect('/app/remote') }, [])
   const content = account === undefined
     ? <div className="route-loading auth-route-loading" role="status">正在检查登录状态…</div>
-    : path === '/app/remote' && account
-      ? <DevicesPage account={account.account} onSignedOut={signedOut} />
-      : path === '/app/login'
-        ? <LoginPanel onAuthSuccess={login} initialError={error} />
-        : <HomePage />
+    : account && path === '/app/login'
+      ? <div className="route-loading auth-route-loading" role="status">正在进入…</div>
+      : path === '/app/remote' && account
+        ? <DevicesPage account={account.account} onSignedOut={signedOut} />
+        : path === '/app/login'
+          ? <LoginPanel onAuthSuccess={login} initialError={error} />
+          : <HomePage />
   return <ConfigProvider locale={zhCN} theme={{
     algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
     token: {

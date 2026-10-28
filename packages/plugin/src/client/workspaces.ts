@@ -85,7 +85,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const [needsAuthorization, setNeedsAuthorization] = React.useState<boolean | undefined>(undefined)
     const [email, setEmail] = React.useState('')
     const [password, setPassword] = React.useState('')
-    const [loginServerUrl, setLoginServerUrl] = React.useState('https://dsh.r2049.cn')
+    const [loginServerUrl, setLoginServerUrl] = React.useState('https://remote.example.com')
     const [editingServer, setEditingServer] = React.useState(false)
     const [savingServer, setSavingServer] = React.useState(false)
     const serverDirty = loginServerUrl.trim() !== (status?.serverUrl ?? '')
@@ -1066,7 +1066,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                     React.createElement('button', {
                       type: 'button', disabled: busy || savingServer,
                       onClick: () => {
-                        setLoginServerUrl(status?.serverUrl ?? 'https://dsh.r2049.cn')
+                        setLoginServerUrl(status?.serverUrl ?? 'https://remote.example.com')
                         setEditingServer(false)
                       },
                     }, t('cancelServiceAddressEdit')))

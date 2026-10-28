@@ -26,4 +26,22 @@ if (packageVersion !== pluginVersion) {
   )
 }
 
+// The self-hosted Server's landing page repeats the installable plugin version.
+// Keep it bound to package.json so a bump cannot leave the served page stale.
+const webHomePagePath = join(root, '..', '..', 'apps', 'server', 'web', 'src', 'HomePage.tsx')
+const webHomePage = readFileSync(webHomePagePath, 'utf8')
+const referencedVersions = [...webHomePage.matchAll(/ds-harness-remote@(\d+\.\d+\.\d+)/g)].map(match => match[1])
+const displayedVersions = [...webHomePage.matchAll(/当前版本 v(\d+\.\d+\.\d+)/g)].map(match => match[1])
+if (referencedVersions.length === 0 || displayedVersions.length === 0) {
+  throw new Error('Cannot find the plugin version strings in apps/server/web/src/HomePage.tsx.')
+}
+for (const version of [...referencedVersions, ...displayedVersions]) {
+  if (version !== packageVersion) {
+    throw new Error(
+      `Version mismatch: apps/server/web/src/HomePage.tsx references ${version}, ` +
+        `but package.json version is ${packageVersion}. Keep these in sync.`
+    )
+  }
+}
+
 console.log(`Version sync verified: ${packageVersion}`)

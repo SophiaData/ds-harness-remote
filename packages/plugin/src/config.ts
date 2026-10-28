@@ -3,7 +3,7 @@ import type { Volatile, VolatileSnapshot } from '@deepseek-ai/cordis'
 import s from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 
-export const DEFAULT_REMOTE_SERVER_URL = 'https://dsh.r2049.cn'
+export const DEFAULT_REMOTE_SERVER_URL = 'https://remote.example.com'
 
 export interface Config {
   enabled?: boolean

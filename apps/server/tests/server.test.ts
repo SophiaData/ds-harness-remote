@@ -1,6 +1,7 @@
 import { runScenarios, scenarioName } from '../../../scripts/test-scenarios.mjs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -326,5 +327,25 @@ describe('control authorization and encrypted relay', () => {
     await closed
     expect(await ctx.host.next('error')).toMatchObject({ connectionId: incoming.connectionId })
     expect((await request('/devices', 'GET', undefined, second.accessToken)).status).toBe(401)
+  })
+})
+describe('served SPA routes', () => {
+  it('serves the SPA shell for known app routes and rejects unknown assets and API paths', async () => {
+    const publicDir = fileURLToPath(new URL('../dist/public', import.meta.url))
+    const indexPath = join(publicDir, 'index.html')
+    const created = !existsSync(indexPath)
+    if (created) { mkdirSync(publicDir, { recursive: true }); writeFileSync(indexPath, '<!doctype html><title>shell</title>') }
+    try {
+      await app.close(); await start()
+      for (const path of ['/', '/app', '/app/login', '/app/remote']) {
+        const response = await fetch(`${base}${path}`)
+        expect(response.status).toBe(200)
+        expect(response.headers.get('content-type')).toContain('text/html')
+      }
+      expect((await fetch(`${base}/assets/missing.js`)).status).toBe(404)
+      expect((await fetch(`${base}/api/v1/nope`)).status).toBe(404)
+    } finally {
+      if (created) unlinkSync(indexPath)
+    }
   })
 })

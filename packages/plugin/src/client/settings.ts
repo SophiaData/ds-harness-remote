@@ -46,7 +46,7 @@ export function createRemotePluginOptions(React: ClientReact) {
     const [error, setError] = React.useState<string | undefined>(undefined)
     const [settingsView, setSettingsView] = React.useState<PluginSettingsView | undefined>(undefined)
     const associationReadRun = React.useRef(0)
-    const persistedServerUrl = settingsView?.config.serverUrl ?? 'https://dsh.r2049.cn'
+    const persistedServerUrl = settingsView?.config.serverUrl ?? 'https://remote.example.com'
     const association = associations.client ?? associations.host
     const serverDirty = settingsView !== undefined && serverUrl !== persistedServerUrl
     const draftDirty = serverDirty
@@ -57,7 +57,7 @@ export function createRemotePluginOptions(React: ClientReact) {
 
     const applyView = (view: PluginSettingsView, updateAssociations = true): void => {
       setSettingsView(view)
-      setServerUrl(view.config.serverUrl ?? 'https://dsh.r2049.cn')
+      setServerUrl(view.config.serverUrl ?? 'https://remote.example.com')
       setTerminalEnabled(view.config.terminal?.enabled ?? true)
       setRemoteToolsEnabled(view.config.remoteTools?.enabled ?? false)
       setAcpBackends((view.config.acp?.backends ?? []).map(item => ({ id: item.id, enabled: item.enabled !== false })))
@@ -350,7 +350,7 @@ export function createRemotePluginOptions(React: ClientReact) {
                   value: serverUrl,
                   disabled: true,
                   required: true,
-                  placeholder: 'https://dsh.r2049.cn',
+                  placeholder: 'https://remote.example.com',
                   onChange: (event: Event) => { setServerUrl((event.target as HTMLInputElement).value); setNotice(undefined) },
                 }),
                 React.createElement('p', null, t('serverUrlHint'))),
@@ -422,7 +422,7 @@ export function createRemotePluginOptions(React: ClientReact) {
                   value: serverUrl,
                   disabled: busy || !writable,
                   required: true,
-                  placeholder: 'https://dsh.r2049.cn',
+                  placeholder: 'https://remote.example.com',
                   onChange: (event: Event) => { setServerUrl((event.target as HTMLInputElement).value); setNotice(undefined) },
                 }),
                 React.createElement('p', null, t('serverUrlHint'))),

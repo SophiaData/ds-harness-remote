@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCli } from '../src/cli.js'
+import { DEFAULT_REMOTE_SERVER_URL } from '../src/config.js'
 import { IdentityStore, serverStorageDirectory } from '../src/identity-store.js'
 import { HostServerApi } from '../src/server-api.js'
 import { ServerCredentialStore } from '../src/server-credentials.js'
@@ -26,7 +27,7 @@ describe('Remote CLI', () => {
       if (url.endsWith('/auth/oauth/providers')) return json({ items: [providerInfo('github')] })
       if (url.endsWith('/auth/oauth/qr/start?provider=github')) return json({
         qrId: 'github-qr-session-1234567890',
-        scanUrl: 'https://dsh.r2049.cn/api/v1/auth/q/github-qr-session-1234567890',
+        scanUrl: `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/q/github-qr-session-1234567890`,
         expiresIn: 600,
         provider: 'github',
       })
@@ -48,24 +49,24 @@ describe('Remote CLI', () => {
     })).resolves.toBe(0)
 
     expect(calls.map(call => call.url)).toEqual([
-      'https://dsh.r2049.cn/api/v1/auth/oauth/providers',
-      'https://dsh.r2049.cn/api/v1/auth/oauth/providers',
-      'https://dsh.r2049.cn/api/v1/auth/oauth/qr/start?provider=github',
-      'https://dsh.r2049.cn/api/v1/auth/oauth/qr/github-qr-session-1234567890',
-      'https://dsh.r2049.cn/api/v1/auth/me',
-      'https://dsh.r2049.cn/api/v1/devices/register',
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/oauth/providers`,
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/oauth/providers`,
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/oauth/qr/start?provider=github`,
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/oauth/qr/github-qr-session-1234567890`,
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/me`,
+      `${DEFAULT_REMOTE_SERVER_URL}/api/v1/devices/register`,
     ])
     expect(output.text).toContain('<terminal-qr>')
-    expect(output.text).toContain(`Authorization URL: \u001B]8;;https://dsh.r2049.cn/api/v1/auth/q/github-qr-session-1234567890\u0007https://dsh.r2049.cn/api/v1/auth/q/github-qr-session-1234567890\u001B]8;;\u0007`)
+    expect(output.text).toContain(`Authorization URL: \u001B]8;;${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/q/github-qr-session-1234567890\u0007${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/q/github-qr-session-1234567890\u001B]8;;\u0007`)
     expect(output.text).toContain('Remote Host login complete for host@example.com.')
     expect(output.text).toContain('Restart dsh-tui')
     expect(output.text).not.toContain('web-account-token-value')
     expect(output.text).not.toContain('access-token-value')
     expect(errors.text).toBe('')
 
-    const directory = serverStorageDirectory(join(dshHome, 'remote'), 'https://dsh.r2049.cn', 'host')
+    const directory = serverStorageDirectory(join(dshHome, 'remote'), DEFAULT_REMOTE_SERVER_URL, 'host')
     const device = JSON.parse(await readFile(join(directory, 'device.json'), 'utf8')) as { deviceId: string }
-    await expect(new ServerCredentialStore(directory).load('https://dsh.r2049.cn', device.deviceId))
+    await expect(new ServerCredentialStore(directory).load(DEFAULT_REMOTE_SERVER_URL, device.deviceId))
       .resolves.toMatchObject({ authorizationMethod: 'account', account: 'host@example.com' })
   })
 
@@ -76,7 +77,7 @@ describe('Remote CLI', () => {
     const errors = writer()
     const start = vi.fn(async () => ({
       qrId: 'zhihu-qr-session-1234567890',
-      scanUrl: 'https://dsh.r2049.cn/api/v1/auth/q/zhihu-qr-session-1234567890',
+      scanUrl: `${DEFAULT_REMOTE_SERVER_URL}/api/v1/auth/q/zhihu-qr-session-1234567890`,
       expiresIn: 600,
     }))
     const poll = vi.fn(async () => ({ status: 'expired' as const }))
@@ -107,11 +108,11 @@ describe('Remote CLI', () => {
     directories.push(dshHome)
     const env = { DSH_HOME: dshHome }
     const root = new IdentityStore({ env }).directory
-    const directory = serverStorageDirectory(root, 'https://dsh.r2049.cn', 'host')
+    const directory = serverStorageDirectory(root, DEFAULT_REMOTE_SERVER_URL, 'host')
     const identities = new IdentityStore({ directory, env })
     const original = await identities.loadOrCreate('CLI test Host')
     await new ServerCredentialStore(directory).save({
-      serverUrl: 'https://dsh.r2049.cn',
+      serverUrl: DEFAULT_REMOTE_SERVER_URL,
       deviceId: original.deviceId,
       authorizationMethod: 'account',
       account: 'host@example.com',
@@ -137,7 +138,7 @@ describe('Remote CLI', () => {
     expect(revoke).toHaveBeenCalledOnce()
     const rotated = JSON.parse(await readFile(join(directory, 'device.json'), 'utf8')) as { deviceId: string }
     expect(rotated.deviceId).not.toBe(original.deviceId)
-    await expect(new ServerCredentialStore(directory).load('https://dsh.r2049.cn', rotated.deviceId))
+    await expect(new ServerCredentialStore(directory).load(DEFAULT_REMOTE_SERVER_URL, rotated.deviceId))
       .resolves.toBeUndefined()
     expect(output.text).toContain('local device identity was rotated')
   })
@@ -147,10 +148,10 @@ describe('Remote CLI', () => {
     directories.push(dshHome)
     const env = { DSH_HOME: dshHome }
     const root = new IdentityStore({ env }).directory
-    const directory = serverStorageDirectory(root, 'https://dsh.r2049.cn', 'host')
+    const directory = serverStorageDirectory(root, DEFAULT_REMOTE_SERVER_URL, 'host')
     const identity = await new IdentityStore({ directory, env }).loadOrCreate('CLI status Host')
     await new ServerCredentialStore(directory).save({
-      serverUrl: 'https://dsh.r2049.cn',
+      serverUrl: DEFAULT_REMOTE_SERVER_URL,
       deviceId: identity.deviceId,
       authorizationMethod: 'account',
       account: 'status@example.com',

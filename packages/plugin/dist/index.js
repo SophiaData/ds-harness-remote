@@ -75279,7 +75279,7 @@ function safeMessage(error) {
 // src/config.ts
 import { hostname } from "node:os";
 import s from "@deepseek-ai/schemastery";
-var DEFAULT_REMOTE_SERVER_URL = "https://dsh.r2049.cn";
+var DEFAULT_REMOTE_SERVER_URL = "https://remote.example.com";
 var entryConfigSchema = s.object({
   enabled: s.boolean(),
   role: s.union(["host", "client", "both"]),
