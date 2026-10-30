@@ -1,0 +1,87 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm --filter './packages/**' -r build
+
+      - name: Check out Intelligent UI renderer source
+        uses: actions/checkout@v6
+        with:
+          repository: dreamfarer-space/deepseek-harness-intelligent-ui
+          ref: bfb6b35f7ee94291629796d2b5eb577d20d8fa29
+          path: .deps/deepseek-harness-intelligent-ui
+
+      - name: Verify pinned Intelligent UI renderer
+        run: |
+          test "$(git -C .deps/deepseek-harness-intelligent-ui rev-parse HEAD)" = "bfb6b35f7ee94291629796d2b5eb577d20d8fa29" || { echo '::error::Unexpected renderer source commit'; exit 1; }
+          test "$(git -C .deps/deepseek-harness-intelligent-ui hash-object renderer/renderer.js)" = "b8cb5e17bf7e77f3c9ed374edc0f994f358beeac" || { echo '::error::Unexpected renderer file content'; exit 1; }
+
+      - name: Bundle local Android renderers
+        env:
+          DSH_INTELLIGENT_UI_RENDERER_BUNDLE: ${{ github.workspace }}/.deps/deepseek-harness-intelligent-ui/renderer/renderer.js
+          DSH_REQUIRE_INTELLIGENT_UI: 'true'
+        run: pnpm --dir apps/android run build:renderers
+
+      - name: Verify bundled Android renderers
+        env:
+          DSH_REQUIRE_INTELLIGENT_UI: 'true'
+        run: node apps/android/scripts/verify-intelligent-ui-renderer.mjs
+
+      - name: Generate Android project
+        run: pnpm --dir apps/android exec expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        env:
+          NODE_ENV: production
+        run: |
+          chmod +x apps/android/android/gradlew
+          apps/android/android/gradlew \
+            -p apps/android/android \
+            :app:assembleRelease \
+            --no-daemon \
+            --build-cache \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-remote-android-apk
+          path: apps/android/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
