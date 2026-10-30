@@ -27,7 +27,7 @@ import { strings as zhCN, type LanguagePreference } from '../locales/i18n'
 import type { ThemePreference, TypographyDensity } from '../ui/theme'
 
 /** Default DSH Remote Server; a build can override it via EXPO_PUBLIC_DSH_REMOTE_SERVER. */
-const defaultServerUrl = 'https://dsh.r2049.cn'
+const defaultServerUrl = 'http://100.76.66.68:8099'
 const updateUrl = 'https://github.com/liguobao/ds-harness-remote/releases/latest'
 const releaseApiUrl = 'https://api.github.com/repos/liguobao/ds-harness-remote/releases/latest'
 const developerUrl = 'https://www.zhihu.com/people/codelover'
