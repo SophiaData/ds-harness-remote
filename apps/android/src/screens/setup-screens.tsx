@@ -422,7 +422,7 @@ export function ServerSetupScreen({ onComplete, onBack, onMore, serverExpanded, 
 
           <View style={[styles.loginCard, largeScreen && styles.formLarge]}>
             <Text style={styles.loginCardTitle}>{language.startsWith('zh-') ? '请选择登录方式' : 'Choose a sign-in method'}</Text>
-          {providersPhase === 'ready' && oauthMethods.length > 0 && (
+          {(providersPhase === 'ready' || providersPhase === 'failed') && (
             <>
               <View style={[styles.providerRow, largeScreen && styles.providerRowWide]}>
                 {[...oauthMethods, 'password' as const].map(method => (
